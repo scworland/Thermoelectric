@@ -1,0 +1,81 @@
+---
+title: "National Water Use example"
+author: "Scott Worland"
+date: "Thursday, July 16, 2015"
+output:
+  html_document:
+    theme: cosmo
+    toc: yes
+---
+
+### Preface
+
+This code calculates the change in water use as a percentage of the average Mississippi River discharge. This is an example of how a commented script file will look.If a something requires a source, it is linked within the text.
+
+### Input data
+
+The first step is to load the [data](http://waterdata.usgs.gov/nwis/water_use), which is done with a simple R command,
+```{r, echo=F, error=F,warning=F}
+setwd("C:\\Users\\scworlan\\Documents\\Thermoelectric\\R_code\\Thermoelectric\\Water_use_example")
+```
+
+```{r, error=F, warning=F}
+d = read.delim("USGS_national_WU_data.txt", header=T)
+```
+
+The next step is to manually include the [Mississippi River discharge](http://pubs.usgs.gov/of/1987/ofr87-242/),
+
+```{r, eval=FALSE, warning=F}
+Q1 = 593000 #ft3/s
+```
+
+These are the only input for this simple script, so I will next move into the calculations.
+
+### Calculations
+
+1. Convert the discharge data from ft$^3$/S into bgal/day. There are 7.48 gallons in 1 ft$^3$, so the calculation is straightforward,
+
+$$
+Q2 = (Q1 * 7.48 * 60 * 60 * 24)/1e9
+$$
+
+and can is implemented in R below:
+
+```{r, eval=FALSE, warning=F}
+gal = 7.48 #gallons in ft3
+Q2 = (Q1*gal*60*60*24)/1e9 #bgal/day
+```
+
+2. The next calculation is to find the annual differences for each water type. This is simply a column difference with lag = 1. This can be more cleanly implemented in R using an extra R package, but I just use base operations below:
+
+```{r, eval=FALSE, warning=F}
+d2 = as.matrix(t(d[,2:7])) #convert data.frame to matrix
+d3 = t(diff(d2,lag=1)) # take difference of matrix
+```
+
+3. The final calculation is to calculate the annual changes as a percentage of the average discharge of the MS River. This is done by dividing each cell of the difference matrix, d3, by the discharge, Q2:
+
+$$
+d4 = (d3/Q2) * 100
+$$
+
+```{r, eval=FALSE, warning=F}
+d4 = round(d3/Q2*100, 1)
+```
+
+### Export results
+
+The final step is to clean up the data and export to excel:
+```{r, eval=FALSE, warning=F}
+library(xlsx)
+out = data.frame(d[,1],d4)
+colnames(out) = c("Type","1985-1990","1990-1995","1995-2000","2000-2005","2005-2010")
+write.xlsx(out,file = "WU_output_R.xlsx",row.names = FALSE)
+```
+
+
+
+
+~ ~ ~ ~ ~
+
+

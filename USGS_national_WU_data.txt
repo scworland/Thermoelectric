@@ -1,0 +1,10 @@
+National Totals	1985	1990	1995	2000	2005	2010
+"Total withdrawals, in Bgal/d"	397	404	398	413	409	355
+"Public supply, in Bgal/d"	36.6	38.7	40.2	43.3	44.3	42
+"Self-supplied domestic, in Bgal/d"	3.32	3.39	3.39	3.58	3.71	3.6
+"Livestock, in Bgal/d"	2.23	2.25	2.28	2.39	2.15	2
+"Irrigation, in Bgal/d"	135	134	130	139	127	115
+"Thermoelectric power, in Bgal/d"	187	194	190	195	201	161
+"Self-supplied industrial, in Bgal/d"	25.8	22.5	21.6	19.7	18.1	15.9
+"Mining, In Bgal/d"	3.44	4.93	3.59	4.16	3.83	5.32
+"Aquaculture, in Bgal/d"	2.24	2.24	3.23	5.78	8.84	9.42
