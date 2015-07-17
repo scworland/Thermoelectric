@@ -39,7 +39,7 @@ $$
 Q2 = (Q1 * 7.48 * 60 * 60 * 24)/1e9
 $$
 
-and can is implemented in R below:
+and is implemented in R below:
 
 ```{r, eval=FALSE, warning=F}
 gal = 7.48 #gallons in ft3

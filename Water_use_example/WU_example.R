@@ -23,3 +23,4 @@ library(xlsx)
 out = data.frame(d[,1],d4)
 colnames(out) = c("Type","1985-1990","1990-1995","1995-2000","2000-2005","2005-2010")
 write.xlsx(out,file = "WU_output_R.xlsx",row.names = FALSE)
+
