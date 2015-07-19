@@ -17,7 +17,7 @@ PlantChar = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
 ### Design characteristics
 DesignChar = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
                       sheetIndex="Input_SCW",
-                      colIndex = c(1,64:66),
+                      colIndex = 64:66,
                       rowIndex = 2:722,
                       header=TRUE,
                       stringsAsFactors = FALSE)
@@ -25,7 +25,7 @@ DesignChar = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
 ### Added heat load MMBtu
 HeatLoad = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
                      sheetIndex="Input_SCW",
-                     colIndex = c(1,4:15),
+                     colIndex = 4:15,
                      rowIndex = 2:722,
                      header=TRUE,
                      stringsAsFactors = FALSE)
@@ -33,7 +33,7 @@ HeatLoad = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
 ### Dry bulb air temperature Ta (oC)  										
 DryBulb = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
                      sheetIndex="Input_SCW",
-                     colIndex = c(1,16:27),
+                     colIndex = 16:27,
                      rowIndex = 2:722,
                      header=TRUE,
                      stringsAsFactors = FALSE)
@@ -41,7 +41,7 @@ DryBulb = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
 ### Wet bulb air temperature Twb (oC)    									
 WetBulb = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
                     sheetIndex="Input_SCW",
-                    colIndex = c(1,28:39),
+                    colIndex = 28:39,
                     rowIndex = 2:722,
                     header=TRUE,
                     stringsAsFactors = FALSE)
@@ -49,7 +49,7 @@ WetBulb = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
 ### Natural water temperature  T (oC)  										
 NaturalWater = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
                     sheetIndex="Input_SCW",
-                    colIndex = c(1,40:51),
+                    colIndex = 40:51,
                     rowIndex = 2:722,
                     header=TRUE,
                     stringsAsFactors = FALSE)
@@ -57,27 +57,49 @@ NaturalWater = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
 ### Wind speed at 2m W (mph)  										    									
 WindSpeed = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
                     sheetIndex="Input_SCW",
-                    colIndex = c(1,51:62),
+                    colIndex = 51:62,
                     rowIndex = 2:722,
                     header=TRUE,
                     stringsAsFactors = FALSE)
 
 # Modelling ----
 
-## convert elevation to mb to psia for all plants
-PlantChar$mb = ((44331.514-(PlantChar$Elevation*0.3048))/11880.516)^(1/0.1902632) # F3 & F4
-PlantChar$psia = PlantChar$mb/68.94757293 # K2
+## Create unique vector for plant ID
+PlantID = data.frame(PlantChar[,1])
+colnames(PlantID) = "ID"
 
-## convert Twb and Tdb to SI units !!! not needed
-#DryBulb[,2:13] = (DryBulb[,2:13]-32)/1.8
-#WetBulb[,2:13] = (WetBulb[,2:13]-32)/1.8
+## convert elevation to mb to psia for all plants (F3,F4,K2)
+PlantChar$mb = ((44331.514-(PlantChar$Elevation*0.3048))/11880.516)^(1/0.1902632) 
+PlantChar$psia = PlantChar$mb/68.94757293 
 
-## Calculate saturation vapor pressure at inlet air wet bulb temperature
-Ew = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(WetBulb[,2:13]+273)))+
-               (-0.545/0.11)*log((WetBulb[,2:13]+273)/273)) # L
+## Calculate saturation vapor pressure at inlet air wet bulb temperature (L)
+Ew = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(WetBulb+273)))+
+               (-0.545/0.11)*log((WetBulb+273)/273)) 
 
-Ew = cbind(PlantChar$Plant_ID,Ew); 
-colnames(Ew)[1] = "Plant_ID"
+## saturated vapor pressure from dry bulb temperature (N,M)
+esat_psia = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(DryBulb+273)))+
+              (-0.545/0.11)*log((DryBulb+273)/273))/68.94757293
+
+esat_mb = esat_psia*68.94757293
+
+## Actual vapor pressure in inlet air (O)
+x1 = PlantChar$mb*0.00066
+x2 = DryBulb-WetBulb 
+x3 = 1+(0.00115*WetBulb)
+
+vap_mb = Ew - (x1*x2*x3)
+
+## relative humidity of inlet air (K)
+phi = vap_mb/Ew
+
+## Pounds of water vapor per pound of dry air in inlet air, calculated per L&M '71 eqn 3 (Q)
+LbLb = (0.622*phi*esat_psia)/(PlantChar$psia-(phi*esat_psia))
+
+## enthalpy of inlet air calculated per L&M '71 eqn 4 (J and AI)
+inlet_H=0.24*(DryBulb*(9/5)+32)+LbLb*(1061.8+0.44*(DryBulb*(9/5)+32))
+
+
+
 
 
 
