@@ -64,23 +64,36 @@ WindSpeed = read.xlsx("Towers_test_input_one_plant_7_17_2015.xlsx",
 
 # Modelling ----
 
-## convert elevation to mb to psia for all plants
-PlantChar$mb = ((44331.514-(PlantChar$Elevation*0.3048))/11880.516)^(1/0.1902632) # F3 & F4
-PlantChar$psia = PlantChar$mb/68.94757293 # K2
+## convert elevation to mb to psia for all plants (F3,F4,K2)
+PlantChar$mb = ((44331.514-(PlantChar$Elevation*0.3048))/11880.516)^(1/0.1902632) 
+PlantChar$psia = PlantChar$mb/68.94757293 
 
-## convert Twb and Tdb to SI units !!! not needed
-#DryBulb[,2:13] = (DryBulb[,2:13]-32)/1.8
-#WetBulb[,2:13] = (WetBulb[,2:13]-32)/1.8
-
-## Calculate saturation vapor pressure at inlet air wet bulb temperature
+## Calculate saturation vapor pressure at inlet air wet bulb temperature (L)
 Ew = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(WetBulb[,2:13]+273)))+
-               (-0.545/0.11)*log((WetBulb[,2:13]+273)/273)) # L
+               (-0.545/0.11)*log((WetBulb[,2:13]+273)/273)) 
 
-Ew = cbind(PlantChar$Plant_ID,Ew); 
+Ew = cbind(PlantChar$Plant_ID,Ew); #include plant ID
 colnames(Ew)[1] = "Plant_ID"
 
+## saturated vapor pressure from dry bulb temperature (N,M)
+esat_psia = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(DryBulb[,2:13]+273)))+
+              (-0.545/0.11)*log((DryBulb[,2:13]+273)/273))/68.94757293
+
+esat_mb = esat_psia*68.94757293
+  
+esat_psia = cbind(PlantChar$Plant_ID,esat_psia); #include plant ID
+colnames(esat_psia)[1] = "Plant_ID"
+
+esat_mb = cbind(PlantChar$Plant_ID,esat_mb); #include plant ID
+colnames(esat_mb)[1] = "Plant_ID"
 
 
+## Actual vapor pressure in inlet air (O)
+x1 = Ew[,2:13]-PlantChar$mb
+x2 = (DryBulb[,2:13]-WetBulb[,2:13]) 
+x3 = 1+(0.00115*WetBulb[,2:13])*0.00066
+      
+vap_mb = x1*x2*x3
 
 
 
