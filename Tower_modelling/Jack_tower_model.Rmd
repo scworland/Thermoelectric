@@ -1,0 +1,242 @@
+---
+title: "Jack Tower Model"
+author: "Scott Worland"
+date: "Monday, July 20, 2015"
+output:
+  html_document:
+    theme: cosmo
+    toc: yes
+---
+
+## Preface
+
+This vignette details the steps of an R script file which implements a model built by T. Diehl and M. Harris for thermoelectric plants in the US. Below are some links to different defaults of R (which may or may not be different than the defaults in excel) that the reader may want to look into:
+
++ [matrix operations](http://www.ats.ucla.edu/stat/r/library/matrix_alg.htm)
++ [logarithms](http://astrostatistics.psu.edu/su07/R/html/base/html/Log.html)
+
+## Initialize
+
+Load the data from the input excel file using the [xlsx](https://cran.r-project.org/web/packages/xlsx/xlsx.pdf) package:
+
+```{r, echo=F, error=F, warning=F}
+setwd("C:\\Users\\scworlan\\Documents\\Thermoelectric\\R_code\\Thermoelectric\\Tower_modelling")
+```
+
+```{r, echo=T, error=F, warning=F, message=F, cache=T}
+## Read input from excel
+library(xlsx)
+
+filename = "Towers_test_input_one_plant_7_17_2015.xlsx"
+sheetname = "Input_SCW"
+
+### Plant characteristics
+PlantChar = read.xlsx(file = filename,
+                      sheetIndex = sheetname,
+                      colIndex = 1:3,
+                      rowIndex = 2:722,
+                      header = TRUE,
+                      stringsAsFactors = FALSE)
+
+### Design characteristics
+DesignChar = read.xlsx(file = filename,
+                       sheetIndex = sheetname,
+                       colIndex = 64:66,
+                       rowIndex = 2:722,
+                       header = TRUE,
+                       stringsAsFactors = FALSE)
+
+### Added heat load MMBtu
+HeatLoad = read.xlsx(file = filename,
+                     sheetIndex = sheetname,
+                     colIndex = 4:15,
+                     rowIndex = 2:722,
+                     header = TRUE,
+                     stringsAsFactors = FALSE)
+
+### Dry bulb air temperature Ta (oC)          						
+DryBulb = read.xlsx(file = filename,
+                    sheetIndex = sheetname,
+                    colIndex = 16:27,
+                    rowIndex = 2:722,
+                    header = TRUE,
+                    stringsAsFactors = FALSE)
+
+### Wet bulb air temperature Twb (oC)    									
+WetBulb = read.xlsx(file = filename,
+                    sheetIndex = sheetname,
+                    colIndex = 28:39,
+                    rowIndex = 2:722,
+                    header = TRUE,
+                    stringsAsFactors = FALSE)
+
+### Natural water temperature T (oC)  										
+NaturalWater = read.xlsx(file = filename,
+                         sheetIndex = sheetname,
+                         colIndex = 40:51,
+                         rowIndex = 2:722,
+                         header = TRUE,
+                         stringsAsFactors = FALSE)
+
+### Wind speed at 2m W (mph)  										    									
+WindSpeed = read.xlsx(file = filename,
+                      sheetIndex = sheetname,
+                      colIndex = 51:62,
+                      rowIndex = 2:722,
+                      header = TRUE,
+                      stringsAsFactors = FALSE)
+
+### locations and names of plants
+location = read.xlsx(file = filename,
+                      sheetIndex = "locations_SCW",
+                      colIndex = 1:4,
+                      rowIndex = 1:1314,
+                      header = TRUE,
+                      stringsAsFactors = FALSE)
+```
+
+The above code will work as long as the input file format does not change. I have currently "hard-coded" the row range from the excel file (2:722). The input that I used can be viewed in the **Towers_test_input_one_plant_7_17_2015.xlsx**, sheet name **Input_SCW**. It is just an unformatted version of the input file that I was sent by Tim.
+
+Notice that I read the monthly data into seperate matrices. This is for several reasons. One being that we can use matrix operations for most of the first steps, and can index the monthly data for the modelling portion. There is also a seperate matrix for the plant characteristics and the design characteristics. We could join these into one matrix if we wanted too. Below is an example of how the data looks in R after it is read in. The code `head(DryBulb)` will show the first 6 rows (six by default) and all the columns of the matrix that contains the dry bulb temperature. For all of the data, the rows correspond to the different plants.
+
+```{r, echo=T, error=F, warning=F, message=F}
+head(DryBulb)
+```
+
+## Inmost loop
+
+1. Create a seperate vector named **PlantID**. This will become useful later,
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Create unique vector for plant ID
+PlantID = data.frame(PlantChar[,1])
+colnames(PlantID) = "Plant_ID"
+```
+
+2. Convert the elevation data to mb and psia for every plant, and add the values as vectors to the plant characteristic matrix,
+
+$$
+P_{atm} = ((44331.5-(Elev*0.3))/11880.5)^{1/0.2}
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## convert elevation to mb to psia for all plants (F3,F4,K2)
+PlantChar$atm_mb = ((44331.514-(PlantChar$Elevation*0.3048))/11880.516)^(1/0.1902632) 
+
+PlantChar$atm_psia = PlantChar$atm_mb/68.94757293 
+head(PlantChar)
+```
+
+3. Calculate the saturation vapor pressure ar the inlet air wet bulb temperature in both mb and psia. This corresponds to column L in the spreadsheet, 
+
+$$
+P_w = 6.1 * e^{1448.49 * [(1/273)-(1/(Twb+273))]} - 4.95 * ln((Twb+273)/273)
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Calculate saturation vapor pressure at inlet air wet bulb temperature (L)
+Pw_mb = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(WetBulb+273)))+
+                  (-0.545/0.11)*log((WetBulb+273)/273)) 
+
+Pw_psia = Pw_mb/68.94757293 
+head(Pw_mb)
+```
+
+4. Calculate the saturated vapor pressure from the dry bulb temperature in both mb and psia. This corresponds to columns M and N in the spreadsheet,
+
+$$
+P_s = 6.1 * e^{1448.49 * [(1/273)-(1/(Tdb+273))]} - 4.95 * ln((Tdb+273)/273)
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## saturated vapor pressure from dry bulb temperature (N,M)
+Ps_mb = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(DryBulb+273)))+
+                         (-0.545/0.11)*log((DryBulb+273)/273))
+
+Ps_psia = Ps_mb/68.94757293
+head(Ps_mb)
+```
+
+5. Calculate the actual vapor pressure in inlet air. This corresponds to column O in the spreadsheet,
+
+$$
+P_v = P_w - (P_s*6.6e-4*(Tdb-Twb)*(1+(1.15e-3*Twb)))
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Actual vapor pressure in inlet air (O)
+vap_mb = Pw_mb - (PlantChar$atm_mb*0.00066*(DryBulb-WetBulb)*(1+(0.00115*WetBulb)))
+head(vap_mb)
+```
+
+5. Calculate the relative humility of the inlet air. This corresponds to column K in the spreadsheet,
+
+$$
+\phi = vap/P_s
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## relative humidity of inlet air (K)
+phi = vap_mb/Ps_mb
+head(phi)
+```
+
+6. Calculate the pounds of water vapor per pound of dry air in inlet air. This corresponds to column Q in the spreadsheet. This is equation 3 from L&M '71:
+
+$$
+\omega_1 = \frac{0.622 * \phi * P_s}{P_{atm} - \phi * P_s}
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Pounds of water vapor per pound of dry air in inlet air, calculated per L&M '71 eqn 3 (Q)
+w1 = (0.622*phi*Ps_psia)/(PlantChar$atm_psia-(phi*Ps_psia))
+head(w1)
+```
+
+7. Calculate the enthalpy of the inlet air. This correponds to columns J and AI of the spreadsheet. This is equation 4 from L&M '71:
+
+$$
+Ha_1 = 0.24*Tdb_F + \omega_1*(1061.8 + 0.44*Tdb_F)
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## enthalpy of inlet air calculated per L&M '71 eqn 4 (J and AI)
+Ha1=0.24*(DryBulb*(9/5)+32)+w1*(1061.8+0.44*(DryBulb*(9/5)+32))
+head(Ha1)
+```
+
+8. Calculate the specific volume ($\upsilon$ = $\rho^{-1}$ = ft$^3$lb$^{-1}$) of the inlet air. This corresponds to column R in the spreadsheet,
+
+$$
+\upsilon = ((1 + w1*1.6)*286.9*((273.1+Tdb)/(P_{atm}*6894.8))/0.3^3)/2.2
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## inlet air specific volume in cubic feet per pound - pertains to vapor/gas mixture (R)
+sv = ((1+w1*1.585918)*286.9*((273.15+DryBulb)/(PlantChar$atm_psia*6894.757))/0.3048^3)/2.20462262
+head(sv)
+```
+
+##Mapping
+R has about a million ways to show spatial data. I prefer to use the ggmap package as its a derivative of my favorite plotting package, ggplot. Below is just an example map using the elevation of each plant from the model data.
+
+```{r, eval=T, error=F, warning=F, message=F, fig.align='center', cache=T}
+# Mapping
+library(RColorBrewer)
+library(ggmap)
+
+## subset the plants used in the model
+plants = merge(location,PlantChar,by="Plant_ID")
+plants = subset(plants, lon > -130)
+
+## load the state data
+state = map_data('state')
+
+## Build map and plot
+m1 = ggplot() + ggtitle("U.S. Thermoelectric Plants")
+m1 = m1 + geom_polygon(data=state,aes(long,lat, group=group), color ="white", fill="black") 
+m1 = m1 + coord_fixed(1.3) + theme_bw(base_size = 20)
+m1 = m1 + geom_point(data=plants, aes(lon,lat,color=Elevation), size=2)
+m1 = m1 + scale_color_gradientn(colours = rev(brewer.pal(n=11,name = 'RdYlBu')))
+m1
+```
