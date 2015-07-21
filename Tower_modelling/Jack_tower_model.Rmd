@@ -8,20 +8,133 @@ output:
     toc: yes
 ---
 
-## Preface
-
-This vignette details the steps of an R script file which implements a model built by T. Diehl and M. Harris for thermoelectric plants in the US. Below are some links to different defaults of R (which may or may not be different than the defaults in excel) that the reader may want to look into:
-
-+ [matrix operations](http://www.ats.ucla.edu/stat/r/library/matrix_alg.htm)
-+ [logarithms](http://astrostatistics.psu.edu/su07/R/html/base/html/Log.html)
-
-## Initialize
-
-Load the data from the input excel file using the [xlsx](https://cran.r-project.org/web/packages/xlsx/xlsx.pdf) package:
-
 ```{r, echo=F, error=F, warning=F}
 setwd("C:\\Users\\scworlan\\Documents\\Thermoelectric\\R_code\\Thermoelectric\\Tower_modelling")
 ```
+
+## Preface
+
+This text details the steps of an R script file which implements a model built by T. Diehl and M. Harris for thermoelectric plants in the US. <font color="Green">Below are some links to different R resources that the reader may want to look into</font>:
+
++ [matrix operations](http://www.ats.ucla.edu/stat/r/library/matrix_alg.htm)
++ [logarithms](http://astrostatistics.psu.edu/su07/R/html/base/html/Log.html)
++ [<font color="Green">Spreadsheet thinking to R thinking</font>](http://www.burns-stat.com/first-step-towards-r-spreadsheets/)
+
+## Background
+
+Load the data from the input excel file using the [xlsx](https://cran.r-project.org/web/packages/xlsx/xlsx.pdf) package. <font color="Green"> R programming relies heavily on packages which have functions to complete certain tasks. These packages are hosted on what is called the "CRAN", or the Comprehensive R Archive Network, which hosts almost 7000 packages. There are some stringent requirements to have a package hosted on the CRAN, and more about those requirements can be read [here](https://cran.r-project.org/web/packages/policies.html).The XLSX package provides many options that we will not use here, and more details can be found by clicking on the link above. Before I start actually loading the data, I will show a heavily commented example. The first step for using an R package is to install it on your personal machine. This is done with a simple command. Note: you only have to install the package one time,</font>
+
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+install.packages('XLSX')
+```
+
+<font color="Green">After the package is installed, it will be stored in your personal library. To use the functions within the package, you must first load it from your library using the following command, </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+library(xlsx)
+```
+
+<font color="Green">You will need to include the library command within your script file each time you would like to use it. If you know you will be using the same file, it makes sense to call the long file name a variable that can be reused. If you are loading data from excel, the same thing goes for the sheetname, </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+filename = "Towers_test_input_one_plant_7_17_2015.xlsx"
+sheetname = "Input_SCW"
+```
+
+<font color="Green">As an example, let's load the entire worksheet from the file. It is helpful to think of the each segment of code ("code chunk"" if you like jargon) like a car in a factory. You start with the most basic model (vinyl seats, FM radio, most likely white...etc), and then you add the bells and whistles that you need for your particular task. The most basic line of code would look like, </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+data = read.xlsx(file = filename)
+```
+
+<font color="Green">By including so little information, you are leaving many of the decisions up to the package defaults. For example, the default sheet will be the first sheet in the excel file... etc. Because we know we would like a specific sheet (it just happens to be the first one), we can specify that, </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+data = read.xlsx(file = filename, sheetIndex = sheetname)
+```
+
+<font color="Green">This is still a pretty simple command, and can easily fit on one line. Because I know where we are going to add components, I am going to go ahead and write it out on two lines, and give each new part a separate line, </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+data = read.xlsx(file = filename, 
+                 sheetIndex = sheetname)
+```
+
+<font color="Green">Now that we have specified the file name and sheet name, we need to specify which rows and columns we would like to load. For illustration, let's only read in a portion of the data, </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+data = read.xlsx(file = filename,
+                 sheetIndex = sheetname,
+                 colIndex = 1:3,
+                 rowIndex = 1:10)
+```
+
+<font color="Green">The above would just load the first 3 columns, and 10 rows. For rows (not available for columns. I am sure the developers have some reason for this) you can also specify a starting row and it will automatically read to the last row. For example, </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+data = read.xlsx(file = filename,
+                 sheetIndex = sheetname,
+                 colIndex = 1:3,
+                 startRow = 2)
+```
+
+<font color="Green">This is useful when the number of rows is not a fixed value. The next step is to specify whether or not there are headers. If you do not include this in your code, and there are headers, R will try to read the headers in as data. R will only "see" what you select to read in, so if you are telling it to start on row 2, then that is effectively the first row it will read in. Is row 2 a header? If so, then include the argument, </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+data = read.xlsx(file = filename,
+                 sheetIndex = sheetname,
+                 colIndex = 1:3,
+                 startRow = 2,
+                 header = TRUE)
+```
+
+<font color="Green"> The XLSX package tries to determine the column classes while it reads them in (character, number, factor...etc). You can also explicitly provide the column class for each column. I have found that sometimes excel stores numbers in a format that is almost always read in as a factor into R. This could be an issue with excel, R, or some combination. This is frustrating when you have continuous variables and they are treated as categorical. One thing that seems to help is to tell R to not read in strings as factors. When it then tries to determine the column classes, it usually chooses number, which is what we want. </font>
+```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
+data = read.xlsx(file = filename,
+                 sheetIndex = sheetname,
+                 colIndex = 1:3,
+                 startRow = 2,
+                 header = TRUE,
+                 stringsAsFactors = FALSE)
+```
+
+<font color="Green"> The data can be stored several different ways, the most common being data frames, matrices, or lists. the only real difference between data frames and matrices is that data frames can store data of different types (eg. one column has the color of cars and another has the number of speeding tickets associated with that color. You could not store that type of information in a matrix, but you can in a data frame). The data here is stored as a data frame. After the data is read into R, there are several quick ways to look at the data. There is a user interface which displays the data similarly to an excel spreadsheet. There is also base functions which allows the user to look at a portion of the data without viewing the entire thing. The first 6 rows (default) can be viewed by using the `head` function, and the last 6 rows by using the `tail` function. Lets look at both using our dataset from above: </font>
+
+```{r, echo=F, error=F, warning=F, message=F, cache=T}
+library(xlsx)
+
+filename = "Towers_test_input_one_plant_7_17_2015.xlsx"
+sheetname = "Input_SCW"
+
+data = read.xlsx(file = filename,
+                 sheetIndex = sheetname,
+                 colIndex = 1:3,
+                 startRow = 2,
+                 header = TRUE,
+                 stringsAsFactors = FALSE)
+```
+
+```{r, echo=T, error=F, warning=F, message=F, cache=T}
+head(data)
+tail(data)
+```
+
+<font color="Green"> The row numbers (1,2,3...769) and headers (PlantID, Elevation, PondArea) are there for reference, but are not actually part of the data itself. The data can be accessed is several different ways, but the simplest is using standard index notation: `Matrix[row#,column#]`. For example, </font>
+
+```{r, echo=T, error=F, warning=F, message=F, cache=T}
+data[5,2]
+```
+
+<font color="Green"> Or another option to retrieve the same information, </font>
+
+```{r, echo=T, error=F, warning=F, message=F, cache=T}
+data$Elevation[5]
+```
+
+<font color="Green"> To add a new column to an existing data frame, use the `dataframe$newcolumn` command. For demonstration, I will add a column that contains the elevation in meters, </font>
+
+```{r, echo=T, error=F, warning=F, message=F, cache=T}
+data$Elev_M = data$Elevation*0.3048
+head(data)
+```
+
+<font color="Green"> The convention for data organization is that the row is the observational unit (PlantID) and the columns are variables associated with those units. This format allows us to separate the columns into meaningful groups, and create unique data frames for each. There is several reasons that we might want to do this. For one, most of the first procedures in the model can be completed for entire data frames using basic matrix operations. The conventions for matrix operations in R can be viewed by clicking on the link in the preface, and I will not go into here. With a separate data frame for the dry bulb temperature, where the rows are the individual plants and the columns are the months, we can now use the entire "DryBulb" data frame without having to subset each row. This should become clearer as you read on. Another reason we should separate the data is that R is very good at handling dates. We will be able to take the headers which are currently months, and use them as factors and extract data for any variation of plants and months. </font>
+
+## Load model data
+
+<font color="Green"> Now that we have some basic background information, let's read the data into R. The data is read into 8 different data frames (notice the different column index value for each data frame) for the reasons mentioned above. </font>
 
 ```{r, echo=T, error=F, warning=F, message=F, cache=T}
 ## Read input from excel
@@ -34,7 +147,7 @@ sheetname = "Input_SCW"
 PlantChar = read.xlsx(file = filename,
                       sheetIndex = sheetname,
                       colIndex = 1:3,
-                      rowIndex = 2:722,
+                      startRow = 2,
                       header = TRUE,
                       stringsAsFactors = FALSE)
 
@@ -42,7 +155,7 @@ PlantChar = read.xlsx(file = filename,
 DesignChar = read.xlsx(file = filename,
                        sheetIndex = sheetname,
                        colIndex = 64:66,
-                       rowIndex = 2:722,
+                       startRow = 2,
                        header = TRUE,
                        stringsAsFactors = FALSE)
 
@@ -50,7 +163,7 @@ DesignChar = read.xlsx(file = filename,
 HeatLoad = read.xlsx(file = filename,
                      sheetIndex = sheetname,
                      colIndex = 4:15,
-                     rowIndex = 2:722,
+                     startRow = 2,
                      header = TRUE,
                      stringsAsFactors = FALSE)
 
@@ -58,7 +171,7 @@ HeatLoad = read.xlsx(file = filename,
 DryBulb = read.xlsx(file = filename,
                     sheetIndex = sheetname,
                     colIndex = 16:27,
-                    rowIndex = 2:722,
+                    startRow = 2,
                     header = TRUE,
                     stringsAsFactors = FALSE)
 
@@ -66,7 +179,7 @@ DryBulb = read.xlsx(file = filename,
 WetBulb = read.xlsx(file = filename,
                     sheetIndex = sheetname,
                     colIndex = 28:39,
-                    rowIndex = 2:722,
+                    startRow = 2,
                     header = TRUE,
                     stringsAsFactors = FALSE)
 
@@ -74,7 +187,7 @@ WetBulb = read.xlsx(file = filename,
 NaturalWater = read.xlsx(file = filename,
                          sheetIndex = sheetname,
                          colIndex = 40:51,
-                         rowIndex = 2:722,
+                         startRow = 2,
                          header = TRUE,
                          stringsAsFactors = FALSE)
 
@@ -82,7 +195,7 @@ NaturalWater = read.xlsx(file = filename,
 WindSpeed = read.xlsx(file = filename,
                       sheetIndex = sheetname,
                       colIndex = 51:62,
-                      rowIndex = 2:722,
+                      startRow = 2,
                       header = TRUE,
                       stringsAsFactors = FALSE)
 
@@ -90,22 +203,15 @@ WindSpeed = read.xlsx(file = filename,
 location = read.xlsx(file = filename,
                       sheetIndex = "locations_SCW",
                       colIndex = 1:4,
-                      rowIndex = 1:1314,
+                      startRow = 1,
                       header = TRUE,
                       stringsAsFactors = FALSE)
 ```
 
-The above code will work as long as the input file format does not change. I have currently "hard-coded" the row range from the excel file (2:722). The input that I used can be viewed in the **Towers_test_input_one_plant_7_17_2015.xlsx**, sheet name **Input_SCW**. It is just an unformatted version of the input file that I was sent by Tim.
+The above code will work as long as the <font color="Green"> columns of the input file format does not change</font>. The input that I used can be viewed in the **Towers_test_input_one_plant_7_17_2015.xlsx**, sheet name **Input_SCW**. It is an unformatted version of the original input file I was sent
 
-Notice that I read the monthly data into seperate matrices. This is for several reasons. One being that we can use matrix operations for most of the first steps, and can index the monthly data for the modelling portion. There is also a seperate matrix for the plant characteristics and the design characteristics. We could join these into one matrix if we wanted too. Below is an example of how the data looks in R after it is read in. The code `head(DryBulb)` will show the first 6 rows (six by default) and all the columns of the matrix that contains the dry bulb temperature. For all of the data, the rows correspond to the different plants.
-
-```{r, echo=T, error=F, warning=F, message=F}
-head(DryBulb)
-```
-
-## Inmost loop
-
-1. Create a seperate vector named **PlantID**. This will become useful later,
+## <font color="Green"> Basic data formatting</font>
+1. Create a separate vector <font color="Green">(a vector is a matrix with only one row = "row vector" or one column = "column vector")</font> named **PlantID**. This will become useful later,
 
 ```{r, eval=T, error=F, warning=F, message=F, cache=T}
 ## Create unique vector for plant ID
@@ -113,7 +219,7 @@ PlantID = data.frame(PlantChar[,1])
 colnames(PlantID) = "Plant_ID"
 ```
 
-2. Convert the elevation data to mb and psia for every plant, and add the values as vectors to the plant characteristic matrix,
+2. Convert the elevation data to mb and psia for every plant, and add the values in vectors to the plant characteristic data frame <font color="Green">(this is the exact same process as I used to add a column of elevation in meters to the example data frame above),</font>
 
 $$
 P_{atm} = ((44331.5-(Elev*0.3))/11880.5)^{1/0.2}
@@ -127,7 +233,9 @@ PlantChar$atm_psia = PlantChar$atm_mb/68.94757293
 head(PlantChar)
 ```
 
-3. Calculate the saturation vapor pressure ar the inlet air wet bulb temperature in both mb and psia. This corresponds to column L in the spreadsheet, 
+## Inmost loop of the model
+
+3. Calculate the saturation vapor pressure of the inlet air wet bulb temperature in both mb and psia. This corresponds to column L in the spreadsheet. <font color="Green"> This is just like the vector operations above, but now we doing it to a matrix of monthly data for each plant. We are doing what is referred to as "element-wise" operations, where we are doing the same operation to each element in the data frame. </font>
 
 $$
 P_w = 6.1 * e^{1448.49 * [(1/273)-(1/(Twb+273))]} - 4.95 * ln((Twb+273)/273)
@@ -193,7 +301,7 @@ w1 = (0.622*phi*Ps_psia)/(PlantChar$atm_psia-(phi*Ps_psia))
 head(w1)
 ```
 
-7. Calculate the enthalpy of the inlet air. This correponds to columns J and AI of the spreadsheet. This is equation 4 from L&M '71:
+7. Calculate the enthalpy of the inlet air. This corresponds to columns J and AI of the spreadsheet. This is equation 4 from L&M '71:
 
 $$
 Ha_1 = 0.24*Tdb_F + \omega_1*(1061.8 + 0.44*Tdb_F)

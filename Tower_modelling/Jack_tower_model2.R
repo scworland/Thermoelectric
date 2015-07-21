@@ -12,7 +12,7 @@ sheetname = "Input_SCW"
 PlantChar = read.xlsx(file = filename,
                       sheetIndex = sheetname,
                       colIndex = 1:3,
-                      rowIndex = 2:722,
+                      startRow = 2,
                       header = TRUE,
                       stringsAsFactors = FALSE)
 
@@ -20,7 +20,7 @@ PlantChar = read.xlsx(file = filename,
 DesignChar = read.xlsx(file = filename,
                        sheetIndex = sheetname,
                        colIndex = 64:66,
-                       rowIndex = 2:722,
+                       startRow = 2,
                        header = TRUE,
                        stringsAsFactors = FALSE)
 
@@ -28,7 +28,7 @@ DesignChar = read.xlsx(file = filename,
 HeatLoad = read.xlsx(file = filename,
                      sheetIndex = sheetname,
                      colIndex = 4:15,
-                     rowIndex = 2:722,
+                     startRow = 2,
                      header = TRUE,
                      stringsAsFactors = FALSE)
 
@@ -36,7 +36,7 @@ HeatLoad = read.xlsx(file = filename,
 DryBulb = read.xlsx(file = filename,
                     sheetIndex = sheetname,
                     colIndex = 16:27,
-                    rowIndex = 2:722,
+                    startRow = 2,
                     header = TRUE,
                     stringsAsFactors = FALSE)
 
@@ -44,7 +44,7 @@ DryBulb = read.xlsx(file = filename,
 WetBulb = read.xlsx(file = filename,
                     sheetIndex = sheetname,
                     colIndex = 28:39,
-                    rowIndex = 2:722,
+                    startRow = 2,
                     header = TRUE,
                     stringsAsFactors = FALSE)
 
@@ -52,7 +52,7 @@ WetBulb = read.xlsx(file = filename,
 NaturalWater = read.xlsx(file = filename,
                          sheetIndex = sheetname,
                          colIndex = 40:51,
-                         rowIndex = 2:722,
+                         startRow = 2,
                          header = TRUE,
                          stringsAsFactors = FALSE)
 
@@ -60,7 +60,7 @@ NaturalWater = read.xlsx(file = filename,
 WindSpeed = read.xlsx(file = filename,
                       sheetIndex = sheetname,
                       colIndex = 51:62,
-                      rowIndex = 2:722,
+                      startRow = 2,
                       header = TRUE,
                       stringsAsFactors = FALSE)
 
@@ -68,7 +68,7 @@ WindSpeed = read.xlsx(file = filename,
 location = read.xlsx(file = filename,
                      sheetIndex = "locations_SCW",
                      colIndex = 1:4,
-                     rowIndex = 1:1314,
+                     startRow = 1,
                      header = TRUE,
                      stringsAsFactors = FALSE)
 
