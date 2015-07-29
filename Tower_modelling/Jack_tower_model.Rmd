@@ -14,48 +14,48 @@ setwd("C:\\Users\\scworlan\\Documents\\Thermoelectric\\R_code\\Thermoelectric\\T
 
 ## Preface
 
-This text details the steps of an R script file which implements a model built by T. Diehl and M. Harris for thermoelectric plants in the US. <font color="Green">Below are some links to different R resources that the reader may want to look into</font>:
+This text details the steps of an R script file which implements a model built by T. Diehl and M. Harris for thermoelectric plants in the US. Below are some links to different R resources that the reader may want to look into:
 
 + [matrix operations](http://www.ats.ucla.edu/stat/r/library/matrix_alg.htm)
 + [logarithms](http://astrostatistics.psu.edu/su07/R/html/base/html/Log.html)
-+ [<font color="Green">Spreadsheet thinking to R thinking</font>](http://www.burns-stat.com/first-step-towards-r-spreadsheets/)
++ [Spreadsheet thinking to R thinking](http://www.burns-stat.com/first-step-towards-r-spreadsheets/)
 
 ## Background
 
-Load the data from the input excel file using the [xlsx](https://cran.r-project.org/web/packages/xlsx/xlsx.pdf) package. <font color="Green"> R programming relies heavily on packages which have functions to complete certain tasks. These packages are hosted on what is called the "CRAN", or the Comprehensive R Archive Network, which hosts almost 7000 packages. There are some stringent requirements to have a package hosted on the CRAN, and more about those requirements can be read [here](https://cran.r-project.org/web/packages/policies.html).The XLSX package provides many options that we will not use here, and more details can be found by clicking on the link above. Before I start actually loading the data, I will show a heavily commented example. The first step for using an R package is to install it on your personal machine. This is done with a simple command. Note: you only have to install the package one time,</font>
+Load the data from the input excel file using the [xlsx](https://cran.r-project.org/web/packages/xlsx/xlsx.pdf) package. R programming relies heavily on packages which have functions to complete certain tasks. These packages are hosted on what is called the "CRAN", or the Comprehensive R Archive Network, which hosts almost 7000 packages. There are some stringent requirements to have a package hosted on the CRAN, and more about those requirements can be read [here](https://cran.r-project.org/web/packages/policies.html).The XLSX package provides many options that we will not use here, and more details can be found by clicking on the link above. Before I start actually loading the data, I will show a heavily commented example. The first step for using an R package is to install it on your personal machine. This is done with a simple command. Note: you only have to install the package one time,
 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 install.packages('XLSX')
 ```
 
-<font color="Green">After the package is installed, it will be stored in your personal library. To use the functions within the package, you must first load it from your library using the following command, </font>
+After the package is installed, it will be stored in your personal library. To use the functions within the package, you must first load it from your library using the following command, 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 library(xlsx)
 ```
 
-<font color="Green">You will need to include the library command within your script file each time you would like to use it. If you know you will be using the same file, it makes sense to call the long file name a variable that can be reused. If you are loading data from excel, the same thing goes for the sheetname, </font>
+You will need to include the library command within your script file each time you would like to use it. If you know you will be using the same file, it makes sense to call the long file name a variable that can be reused. If you are loading data from excel, the same thing goes for the sheetname, 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 filename = "Towers_test_input_one_plant_7_17_2015.xlsx"
 sheetname = "Input_SCW"
 ```
 
-<font color="Green">As an example, let's load the entire worksheet from the file. It is helpful to think of the each segment of code ("code chunk"" if you like jargon) like a car in a factory. You start with the most basic model (vinyl seats, FM radio, most likely white...etc), and then you add the bells and whistles that you need for your particular task. The most basic line of code would look like, </font>
+As an example, let's load the entire worksheet from the file. It is helpful to think of the each segment of code ("code chunk"" if you like jargon) like a car in a factory. You start with the most basic model (vinyl seats, FM radio, most likely white...etc), and then you add the bells and whistles that you need for your particular task. The most basic line of code would look like, 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 data = read.xlsx(file = filename)
 ```
 
-<font color="Green">By including so little information, you are leaving many of the decisions up to the package defaults. For example, the default sheet will be the first sheet in the excel file... etc. Because we know we would like a specific sheet (it just happens to be the first one), we can specify that, </font>
+By including so little information, you are leaving many of the decisions up to the package defaults. For example, the default sheet will be the first sheet in the excel file... etc. Because we know we would like a specific sheet (it just happens to be the first one), we can specify that, 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 data = read.xlsx(file = filename, sheetIndex = sheetname)
 ```
 
-<font color="Green">This is still a pretty simple command, and can easily fit on one line. Because I know where we are going to add components, I am going to go ahead and write it out on two lines, and give each new part a separate line, </font>
+This is still a pretty simple command, and can easily fit on one line. Because I know where we are going to add components, I am going to go ahead and write it out on two lines, and give each new part a separate line, 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 data = read.xlsx(file = filename, 
                  sheetIndex = sheetname)
 ```
 
-<font color="Green">Now that we have specified the file name and sheet name, we need to specify which rows and columns we would like to load. For illustration, let's only read in a portion of the data, </font>
+Now that we have specified the file name and sheet name, we need to specify which rows and columns we would like to load. For illustration, let's only read in a portion of the data, 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 data = read.xlsx(file = filename,
                  sheetIndex = sheetname,
@@ -63,7 +63,7 @@ data = read.xlsx(file = filename,
                  rowIndex = 1:10)
 ```
 
-<font color="Green">The above would just load the first 3 columns, and 10 rows. For rows (not available for columns. I am sure the developers have some reason for this) you can also specify a starting row and it will automatically read to the last row. For example, </font>
+The above would just load the first 3 columns, and 10 rows. For rows (not available for columns. I am sure the developers have some reason for this) you can also specify a starting row and it will automatically read to the last row. For example, 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 data = read.xlsx(file = filename,
                  sheetIndex = sheetname,
@@ -71,7 +71,7 @@ data = read.xlsx(file = filename,
                  startRow = 2)
 ```
 
-<font color="Green">This is useful when the number of rows is not a fixed value. The next step is to specify whether or not there are headers. If you do not include this in your code, and there are headers, R will try to read the headers in as data. R will only "see" what you select to read in, so if you are telling it to start on row 2, then that is effectively the first row it will read in. Is row 2 a header? If so, then include the argument, </font>
+This is useful when the number of rows is not a fixed value. The next step is to specify whether or not there are headers. If you do not include this in your code, and there are headers, R will try to read the headers in as data. R will only "see" what you select to read in, so if you are telling it to start on row 2, then that is effectively the first row it will read in. Is row 2 a header? If so, then include the argument, 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 data = read.xlsx(file = filename,
                  sheetIndex = sheetname,
@@ -80,7 +80,7 @@ data = read.xlsx(file = filename,
                  header = TRUE)
 ```
 
-<font color="Green"> The XLSX package tries to determine the column classes while it reads them in (character, number, factor...etc). You can also explicitly provide the column class for each column. I have found that sometimes excel stores numbers in a format that is almost always read in as a factor into R. This could be an issue with excel, R, or some combination. This is frustrating when you have continuous variables and they are treated as categorical. One thing that seems to help is to tell R to not read in strings as factors. When it then tries to determine the column classes, it usually chooses number, which is what we want. </font>
+The XLSX package tries to determine the column classes while it reads them in (character, number, factor...etc). You can also explicitly provide the column class for each column. I have found that sometimes excel stores numbers in a format that is almost always read in as a factor into R. This could be an issue with excel, R, or some combination. This is frustrating when you have continuous variables and they are treated as categorical. One thing that seems to help is to tell R to not read in strings as factors. When it then tries to determine the column classes, it usually chooses number, which is what we want. 
 ```{r, echo=T, eval = F, error=F, warning=F, message=F, cache=T}
 data = read.xlsx(file = filename,
                  sheetIndex = sheetname,
@@ -90,7 +90,7 @@ data = read.xlsx(file = filename,
                  stringsAsFactors = FALSE)
 ```
 
-<font color="Green"> The data can be stored several different ways, the most common being data frames, matrices, or lists. the only real difference between data frames and matrices is that data frames can store data of different types (eg. one column has the color of cars and another has the number of speeding tickets associated with that color. You could not store that type of information in a matrix, but you can in a data frame). The data here is stored as a data frame. After the data is read into R, there are several quick ways to look at the data. There is a user interface which displays the data similarly to an excel spreadsheet. There is also base functions which allows the user to look at a portion of the data without viewing the entire thing. The first 6 rows (default) can be viewed by using the `head` function, and the last 6 rows by using the `tail` function. Lets look at both using our dataset from above: </font>
+The data can be stored several different ways, the most common being data frames, matrices, or lists. the only real difference between data frames and matrices is that data frames can store data of different types (eg. one column has the color of cars and another has the number of speeding tickets associated with that color. You could not store that type of information in a matrix, but you can in a data frame). The data here is stored as a data frame. After the data is read into R, there are several quick ways to look at the data. There is a user interface which displays the data similarly to an excel spreadsheet. There is also base functions which allows the user to look at a portion of the data without viewing the entire thing. The first 6 rows (default) can be viewed by using the `head` function, and the last 6 rows by using the `tail` function. Lets look at both using our dataset from above: 
 
 ```{r, echo=F, error=F, warning=F, message=F, cache=T}
 library(xlsx)
@@ -111,30 +111,30 @@ head(data)
 tail(data)
 ```
 
-<font color="Green"> The row numbers (1,2,3...769) and headers (PlantID, Elevation, PondArea) are there for reference, but are not actually part of the data itself. The data can be accessed is several different ways, but the simplest is using standard index notation: `Matrix[row#,column#]`. For example, </font>
+The row numbers (1,2,3...769) and headers (PlantID, Elevation, PondArea) are there for reference, but are not actually part of the data itself. The data can be accessed is several different ways, but the simplest is using standard index notation: `Matrix[row#,column#]`. For example, 
 
 ```{r, echo=T, error=F, warning=F, message=F, cache=T}
 data[5,2]
 ```
 
-<font color="Green"> Or another option to retrieve the same information, </font>
+Or another option to retrieve the same information, 
 
 ```{r, echo=T, error=F, warning=F, message=F, cache=T}
 data$Elevation[5]
 ```
 
-<font color="Green"> To add a new column to an existing data frame, use the `dataframe$newcolumn` command. For demonstration, I will add a column that contains the elevation in meters, </font>
+To add a new column to an existing data frame, use the `dataframe$newcolumn` command. For demonstration, I will add a column that contains the elevation in meters, 
 
 ```{r, echo=T, error=F, warning=F, message=F, cache=T}
 data$Elev_M = data$Elevation*0.3048
 head(data)
 ```
 
-<font color="Green"> The convention for data organization is that the row is the observational unit (PlantID) and the columns are variables associated with those units. This format allows us to separate the columns into meaningful groups, and create unique data frames for each. There is several reasons that we might want to do this. For one, most of the first procedures in the model can be completed for entire data frames using basic matrix operations. The conventions for matrix operations in R can be viewed by clicking on the link in the preface, and I will not go into here. With a separate data frame for the dry bulb temperature, where the rows are the individual plants and the columns are the months, we can now use the entire "DryBulb" data frame without having to subset each row. This should become clearer as you read on. Another reason we should separate the data is that R is very good at handling dates. We will be able to take the headers which are currently months, and use them as factors and extract data for any variation of plants and months. </font>
+The convention for data organization is that the row is the observational unit (PlantID) and the columns are variables associated with those units. This format allows us to separate the columns into meaningful groups, and create unique data frames for each. There is several reasons that we might want to do this. For one, most of the first procedures in the model can be completed for entire data frames using basic matrix operations. The conventions for matrix operations in R can be viewed by clicking on the link in the preface, and I will not go into here. With a separate data frame for the dry bulb temperature, where the rows are the individual plants and the columns are the months, we can now use the entire "DryBulb" data frame without having to subset each row. This should become clearer as you read on. Another reason we should separate the data is that R is very good at handling dates. We will be able to take the headers which are currently months, and use them as factors and extract data for any variation of plants and months. 
 
 ## Load model data
 
-<font color="Green"> Now that we have some basic background information, let's read the data into R. The data is read into 8 different data frames (notice the different column index value for each data frame) for the reasons mentioned above. </font>
+Now that we have some basic background information, let's read the data into R. The data is read into 8 different data frames (notice the different column index value for each data frame) for the reasons mentioned above. 
 
 ```{r, echo=T, error=F, warning=F, message=F, cache=T}
 ## Read input from excel
@@ -208,10 +208,10 @@ location = read.xlsx(file = filename,
                       stringsAsFactors = FALSE)
 ```
 
-The above code will work as long as the <font color="Green"> columns of the input file format does not change</font>. The input that I used can be viewed in the **Towers_test_input_one_plant_7_17_2015.xlsx**, sheet name **Input_SCW**. It is an unformatted version of the original input file I was sent
+The above code will work as long as the columns of the input file format does not change. The input that I used can be viewed in the **Towers_test_input_one_plant_7_17_2015.xlsx**, sheet name **Input_SCW**. It is an unformatted version of the original input file I was sent
 
-## <font color="Green"> Basic data formatting</font>
-1. Create a separate vector <font color="Green">(a vector is a matrix with only one row = "row vector" or one column = "column vector")</font> named **PlantID**. This will become useful later,
+## Basic data formatting and preperation
+1. Create a separate vector (a vector is a matrix with only one row = "row vector" or one column = "column vector") named **PlantID**. This will become useful later,
 
 ```{r, eval=T, error=F, warning=F, message=F, cache=T}
 ## Create unique vector for plant ID
@@ -219,7 +219,7 @@ PlantID = data.frame(PlantChar[,1])
 colnames(PlantID) = "Plant_ID"
 ```
 
-2. Convert the elevation data to mb and psia for every plant, and add the values in vectors to the plant characteristic data frame <font color="Green">(this is the exact same process as I used to add a column of elevation in meters to the example data frame above),</font>
+2. Convert the elevation data to mb and psia for every plant, and add the values in vectors to the plant characteristic data frame (this is the exact same process as I used to add a column of elevation in meters to the example data frame above),
 
 $$
 P_{atm} = ((44331.5-(Elev*0.3))/11880.5)^{1/0.2}
@@ -233,9 +233,8 @@ PlantChar$atm_psia = PlantChar$atm_mb/68.94757293
 head(PlantChar)
 ```
 
-## Inmost loop of the model
 
-3. Calculate the saturation vapor pressure of the inlet air wet bulb temperature in both mb and psia. This corresponds to column L in the spreadsheet. <font color="Green"> This is just like the vector operations above, but now we doing it to a matrix of monthly data for each plant. We are doing what is referred to as "element-wise" operations, where we are doing the same operation to each element in the data frame. </font>
+3. Calculate the saturation vapor pressure of the inlet air wet bulb temperature in both mb and psia. This corresponds to column L in the spreadsheet. This is just like the vector operations above, but now we doing it to a matrix of monthly data for each plant. We are doing what is referred to as "element-wise" operations, where we are doing the same operation to each element in the data frame. 
 
 $$
 P_w = 6.1 * e^{1448.49 * [(1/273)-(1/(Twb+273))]} - 4.95 * ln((Twb+273)/273)
@@ -313,7 +312,18 @@ Ha1=0.24*(DryBulb*(9/5)+32)+w1*(1061.8+0.44*(DryBulb*(9/5)+32))
 head(Ha1)
 ```
 
-8. Calculate the specific volume ($\upsilon$ = $\rho^{-1}$ = ft$^3$lb$^{-1}$) of the inlet air. This corresponds to column R in the spreadsheet,
+
+##Equation 1
+
+This section contains the code that corresponds to columns R-AH in the spreadsheet, and partially implements equation one from L&m '71. A condensed form of equation one is,
+
+$$
+M_a = \frac{V_a}{\upsilon}
+$$
+
+Where $V_a$ is the volumeteric air flow rate (ft$^3$hr$^{-1}$), and $\upsilon$ is the specific volume ($\upsilon$ = $\rho^{-1}$ = ft$^3$lb$^{-1}$) of the inlet air, and $M_a$ is the mass flow rate (lb/hr). There are some ancillary steps from the spreadsheets that are included here, but will not be found in L&M '71.  
+
+1. The specific volume calculation is in column R in the spreadsheet,
 
 $$
 \upsilon = ((1 + w1*1.6)*286.9*((273.1+Tdb)/(P_{atm}*6894.8))/0.3^3)/2.2
@@ -324,6 +334,202 @@ $$
 sv = ((1+w1*1.585918)*286.9*((273.15+DryBulb)/(PlantChar$atm_psia*6894.757))/0.3048^3)/2.20462262
 head(sv)
 ```
+
+2. And the calculation for specific volume of dry air which corresponds to column AD in the spread sheet,
+
+$$
+\upsilon_d = \upsilon * (1+ \omega_1)
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## specific volume of dry air ft3/lb (AD)
+svdry = sv*(1+w1)
+```
+
+**Tower design parameter caveat:** Because this part of the model includes multiple calculations for a suite of potential tower design parameters, I do not yet use the large matrices and vectors created above. The following calculations follow rows 9 through 42 from the spreadsheet and use the design characteristic Tdb, Twb, and water temperature for 34 potential design parameters for the Jack McDonough plant. The current input only has the design characteristics for the Charles R Lowman plant. I just assumed these characteristics are the same for the Jack McDonough plant. To summarize, the following calculations are the the design characteristic temperatures, and 34 design parameter combinations for the Jack McDonough plant. It will not be difficult to loop through each plant once we have a fuller input file.  
+
+
+3. For now, I am loading the CITI toolkit results from the spread sheet. This may eventually be calculated in the this space (if we choose to numerically integrate), but for now I just use the values in the spreadsheet. These correspond to columns U through Z,
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Load CITI inputs (this will eventually be calculated here)
+CITI = read.xlsx(file = filename,
+                   sheetIndex = "CITI",
+                   colIndex = 1:6,
+                   startRow = 1,
+                   header = TRUE,
+                   stringsAsFactors = FALSE)
+head(CITI)
+```
+
+4. Subset the condenser range (columns X and AB), the L/G mass ratio (column Y), provide a condenser heat load value (column S), calculate the condenser discharge (column T),
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## condenser range in degrees F (X and AB)
+cRange = CITI[,4]
+
+## L/G mass ratio (Y)
+LG = CITI[,5]
+
+## condenser heat load in Btu/hr (S)
+cHL = 1000000
+
+## Condenser discharge in gpm (T)
+cQ = cHL/(60*8.3*cRange)
+```
+
+5. And the result for L&M '71 equation one, the tower air flow mass (column AC),
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Tower air flow mass lbair/hr (AC)
+Ma = cQ*8.3*60/LG
+Ma[1:10]
+```
+
+6. The next step uses the specific volume of dry air for the design conditions. For now I will just use the resulting number for the Jack McDonough plant design conditions from column AD,
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+# Specific volume of dry air for the design conditions (AD)
+vdDC = 14.9757427
+```
+
+7. The next step corresponds to column AE in the spread sheet, and calculates the tower airflow volume for the plant. The airflow volume does not vary with month because the fans that are part of the tower are designed to move a given volume of air. In cooler weather, the volumetric air flow rate is about at the design value, but the mass air flow rate increases. Volume flow rate is still equal to the product of mass flow rate and specific volume.
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Tower airflow volume ft3/hr (AE). This does not change with the month
+Taf = Ma * vdDC
+```
+
+8. This step is not used in the calculations, but compares the air flow to the median air flow from the different tower designs developed for the same design air conditions. It corresponds to column AF,
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Air flow vs median air flow (AF)
+Tafmed = Taf/median(Taf)
+
+## show the first ten values for comparison with the spreadsheet
+Tafmed[1:10]
+```
+
+9. The assumed inlet water temperature on line 9 in the spreadsheet (column AG) is for an assumed design condition. Percent evaporation isn't very sensitive to this, but there's no particular reason not to use the monthly values that are used for FEWS, so that's what I did except for design conditions. In the future let’s use the warmest monthly water temperature for the design water temperature.
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## Max monthly assumed makeup water T in degrees F (AG)
+MupWT = (DesignChar$nwT[54]/(5/9)+32)
+```
+
+10. The assumed makeup flow rate is arbitrary and not critical. It's merely a starting assumption to begin the iteration with. It is given in column AA, and used to calculate the assumed makeup ratio in AH,
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## 1% assumed makeup gpm (AA)
+Mugpm = 2.00803212851406
+
+## Assumed makeup ratio (AH)
+MupR = Mugpm/cQ
+MupR[1:10]
+```
+
+
+Just to reiterate what I mentioned earlier, although this recreates the spreadsheet values for the design temperatures and design parameters, it is not complete. I did not calculate things like L/G for each month yet, but it will be easy to add once we decide on the best way to loop through the plants, months, and design parameters.
+
+## Equation 4
+
+Equation 4 (enthalpy of the inlet air) was calculated in step 7 of the *Basic data formatting and preparation* section, but I included it here as well because this is how it is laid on in the spreadsheet. This corresponds to column AI (and J) of the spreadsheet.
+
+$$
+Ha_1 = 0.24*Tdb_F + \omega_1*(1061.8 + 0.44*Tdb_F)
+$$
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## enthalpy of inlet air calculated per L&M '71 eqn 4 (J and AI)
+Ha1=0.24*(DryBulb*(9/5)+32)+w1*(1061.8+0.44*(DryBulb*(9/5)+32))
+```
+
+But like above, we want the intlet air enthalpy for the design conditions,
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+#Intlet air enthalpy for design conditions column AI
+Ha1DC = 42.636424
+```
+
+## Equation 5
+
+Equation 5 calculates the enthalpy added to the air-vapor mixture and corresponds to column AJ,
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## equation 5: Delta enthalpy BTU/lbair (AJ)
+DH = ((MupWT-32)*Mugpm*60*8.3+cHL)/Ma
+```
+
+The spread sheet has,
+```{r, engine='python', eval=F, error=F, warning=F, message=F, cache=T}
+=+(($AG9-32)*AA9*60*8.3+$S9)/$AC9
+```
+
+Which I think should be
+```{r, engine='python', eval=F, error=F, warning=F, message=F, cache=T}
+=+($AG9-32)*(5/9)*AA9*60*8.3+$S9)/$AC9
+```
+
+I made this change in excel and it had a very small effect on the outcome, but its worth checking. I obviously have not changed it in my code yet either, but I will if we confirm that this is indeed the proper equation.
+
+## Equation 6
+Exit air-vapor mixture enthalpy, column AK,
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## equation 6: outlet enthalpy BTU/lbair (AK)
+Ha2 = Ha1DC + DH
+```
+
+## Equations 7 and 9
+Both of these equations use a lookup table. I attempted to invert this equation, but it is not straightforward. We also looked at modelling the values, but the model coefficients change with elevation. For now, I create a lookup table from the elevation at each plant, and find the temperature and outlet moisture content in the table. 
+
+1. I first build the lookup table,
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+### Create lookup table
+Tc = seq(0.00, 80, 0.01) 
+Tf = (Tc*(9/5))+32 
+mb = 6.1078*10^((Tc*7.5)/(Tc+237.3)) 
+psia = mb/68.94757293 
+W = (0.622*mb)/(PlantChar$atm_mb[54]-(0.378*mb))
+H = (0.24*Tf)+(W*(1061+0.444*Tf))
+SatH = data.frame(Tc,mb,psia,H,Tf,W)
+
+head(SatH)
+```
+
+2. I then use a custom function to find the index of the closest values in the lookup table (R doesn't really have a good way to do this). I found nice function already written on [Stack Overflow](http://stackoverflow.com/questions/10160400/r-find-nearest-index), which uses the `findInterval` function below. The difference in speeds is 1 snap, vs maybe 6 snaps using the `which` function, and it returns the correct values.
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+nearest.vec = function(x, vec)
+{
+  smallCandidate = findInterval(x, vec, all.inside=TRUE)
+  largeCandidate = smallCandidate + 1
+  #nudge is TRUE if large candidate is nearer, FALSE otherwise
+  nudge = 2 * x > vec[smallCandidate] + vec[largeCandidate]
+  return(smallCandidate + nudge)
+}
+```
+
+3. I then find the outlet temperature (column AL) and moisture content (column AM) associated with the enthalpy we calculated for the design conditions,
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+# find index
+index = nearest.vec(Ha2,SatH$H)
+
+### find outlet temperature in degrees F (AL)
+To = SatH$Tf[index]
+
+## find outlet moisture content lbwater/lbair (AM)
+W2 = SatH$W[index]
+```
+
+## Equation 10
+
+Equation 10 solves for the amount of water evaporated (column AN), and from that I calculate the makeup ratio (column AO). The results can be seen in SCW_test_thd tab of the excel spread sheet *Jack Tower Model 7c THD test.xlsx*.
+
+```{r, eval=T, error=F, warning=F, message=F, cache=T}
+## equation 10: amount of water evaporated (AN)
+w1DC = 0.019099713
+gpm2 = Ma*(W2-w1DC)/(8.3*60)
+
+## makeup water rato (AO)
+gpm2R = gpm2/cQ
+```
+
 
 ##Mapping
 R has about a million ways to show spatial data. I prefer to use the ggmap package as its a derivative of my favorite plotting package, ggplot. Below is just an example map using the elevation of each plant from the model data.
