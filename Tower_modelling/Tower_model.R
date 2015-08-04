@@ -1,79 +1,50 @@
 
+## clear workspace environment
+rm(list = ls(all = TRUE)) 
+
 ## Set up workspace and import the data ----
+setwd("~/Thermoelectric/R_code/Thermoelectric/Tower_modelling")
 
-setwd("C:\\Users\\scworlan\\Documents\\Thermoelectric\\R_code\\Thermoelectric\\Tower_modelling")
+### Start the timer
+ptm <- proc.time()
 
-## Read input from excel ----
-library(xlsx)
+## read from CSV file
+filename = "Raw_input.csv"
 
-filename = "Towers_test_input_one_plant_7_17_2015.xlsx"
-sheetname = "Input_SCW"
+data = read.csv(filename, header=T, skip=4)
+param = read.csv(filename, header=T, skip=1, nrows=1,
+                 colClasses = c(rep(NA, 3), rep("NULL", 63)))
 
-options(java.parameters = "-Xmx4g")
+min_T = param[1,1]
+min_approach = param[1,2]
+max_approach = param[1,3]
 
 ### Plant characteristics
-PlantChar = read.xlsx(file = filename,
-                      sheetIndex = sheetname,
-                      colIndex = 1:3,
-                      startRow = 2,
-                      header = TRUE,
-                      stringsAsFactors = FALSE)
+PlantChar = data[1:3]
 
 ### Design characteristics
-DesignChar = read.xlsx(file = filename,
-                       sheetIndex = sheetname,
-                       colIndex = 64:66,
-                       startRow = 2,
-                       header = TRUE,
-                       stringsAsFactors = FALSE)
+DesignChar = data[64:66]
 
 ### Added heat load MMBtu
-HeatLoad = read.xlsx(file = filename,
-                     sheetIndex = sheetname,
-                     colIndex = 4:15,
-                     startRow = 2,
-                     header = TRUE,
-                     stringsAsFactors = FALSE)
+HeatLoad = data[4:15]
+col_names = colnames(HeatLoad)
 
-### Dry bulb air temperature Ta (oC)          						
-DryBulb = read.xlsx(file = filename,
-                    sheetIndex = sheetname,
-                    colIndex = 16:27,
-                    startRow = 2,
-                    header = TRUE,
-                    stringsAsFactors = FALSE)
+### Dry bulb air temperature Ta           					
+DryBulb = data[16:27]
+colnames(DryBulb) = col_names
 
-### Wet bulb air temperature Twb (oC)    									
-WetBulb = read.xlsx(file = filename,
-                    sheetIndex = sheetname,
-                    colIndex = 28:39,
-                    startRow = 2,
-                    header = TRUE,
-                    stringsAsFactors = FALSE)
+### Wet bulb air temperature Twb    									
+WetBulb = data[28:39]
+colnames(WetBulb) = col_names
 
-### Natural water temperature  T (oC)  										
-NaturalWater = read.xlsx(file = filename,
-                         sheetIndex = sheetname,
-                         colIndex = 40:51,
-                         startRow = 2,
-                         header = TRUE,
-                         stringsAsFactors = FALSE)
+### Natural water temperature 										
+NaturalWater = data[40:51]
+colnames(NaturalWater) = col_names
 
 ### Wind speed at 2m W (mph)  										    									
-WindSpeed = read.xlsx(file = filename,
-                      sheetIndex = sheetname,
-                      colIndex = 51:62,
-                      startRow = 2,
-                      header = TRUE,
-                      stringsAsFactors = FALSE)
+WindSpeed = data[51:62]
+colnames(WindSpeed) = col_names
 
-### locations and names of plants
-location = read.xlsx(file = filename,
-                     sheetIndex = "locations_SCW",
-                     colIndex = 1:4,
-                     startRow = 1,
-                     header = TRUE,
-                     stringsAsFactors = FALSE)
 
 # Modelling Phase one 
 
@@ -96,6 +67,10 @@ PlantChar$atm_psia = PlantChar$atm_mb/68.94757293
 DryBulb$design = (DesignChar$Tdb-32)*5/9
 WetBulb$design = (DesignChar$Twb-32)*5/9
 NaturalWater$design = DesignChar$nwT
+
+## set minimum T for wet and dry bulbs
+DryBulb[DryBulb<min_T] = min_T
+WetBulb[WetBulb<min_T] = min_T
 
 ## Calculate saturation vapor pressure at inlet air wet bulb temperature
 Pw_mb = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(WetBulb+273)))+
@@ -140,30 +115,22 @@ nearest.vec <- function(x, vec)
 }
 
 ## Actual model ----
-CITI = read.xlsx(file = filename,
-                 sheetIndex = "CITI",
-                 colIndex = 1:6,
-                 startRow = 1,
-                 header = TRUE,
-                 stringsAsFactors = FALSE)
 
+### Read in CTI file
+CTI = read.csv(file = "CTI_input.csv", header=T, skip=3)
+CTI_param = read.csv("CTI_input.csv", header=T, skip=1, nrows=1,
+                 colClasses = c(rep(NA, 5), rep("NULL", 1)))
 
-cHL = 1000000
-cRange = CITI[,4]
-cQ = cHL/(60*8.3*cRange)
+### name parameters created by user
+min_app = CTI_param[1,1]
+max_app = CTI_param[1,2]
+cond_app = CTI_param[1,3]
+min_steam = CTI_param[1,4]
+steam_cushion = CTI_param[1,5]
 
-### preallocate the tower airflow volume matrix
-VaDC = matrix(ncol=nrow(CITI), nrow=nrow(PlantChar))
+### Create new LG values (1,1.33,1.667,2)
+CTI$LG2 = rep(c(1,1+(1/3),1+(2/3),2))
 
-### first calculate the volume air flow for the design conditions
-for (i in 1:nrow(PlantChar)){
-  LGDC = CITI[,5]
-  MaDC = cQ*8.3*60/LGDC
-  vdDC = svdry$design[i]
-  VaDC[i,] = MaDC * vdDC
-}
-
-### Use inputs + VaDC for remaining calculations
 ### preallocate matrices
 emin=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 emed=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
@@ -171,14 +138,51 @@ emax=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 
+for (i in 1:nrow(PlantChar)){
+
+### typical steam
+typSteam = 92 + (DesignChar$Twb[i]-55)/40*28.5
+max_steam = typSteam + steam_cushion
+  
+CTI$Approach_elev = (CTI[,5]-CTI[,4])/(3500-600)*(PlantChar$Elevation[i]-600) + CTI[,4]
+
+### Create vectors needed for approach interpolation
+LGR = (CTI$LG2-1.2)/(1.8-1.2)
+diffA68 = rep(diff(CTI$Approach_elev)[seq(1, nrow(CTI), 4)], each=4)
+diffA78 = rep(diff(CTI$Approach_elev)[seq(3, nrow(CTI), 4)], each=4)
+APP68 = LGR*diffA68 + rep(CTI$Approach_elev[seq(1, nrow(CTI), 4)], each=4)
+APP78 = LGR*diffA78 + rep(CTI$Approach_elev[seq(3, nrow(CTI), 4)], each=4)
+
+### Interpolate new approach for LG, elevation and design Twb
+CTI$Approach2 = ((DesignChar$Twb[i]-68)/10)*(APP78-APP68)+APP68
+
+### add steam T
+CTI$SteamT = DesignChar$Twb[i] + CTI$Range + CTI$Approach2 + cond_app
+
+### censor towers
+CTI2 = subset(CTI, Approach2 > min_app & Approach2 < max_app)
+CTI2 = subset(CTI, SteamT > min_steam & SteamT < max_steam)
+
+### something else
+cHL = 1000000
+cRange = CTI2[,4]
+cQ = cHL/(60*8.3*cRange)
+
+### first calculate the volume air flow for the design conditions
+LGDC = CTI2[,8]
+MaDC = cQ*8.3*60/LGDC
+vdDC = svdry$design[i]
+VaDC = MaDC * vdDC
+
+
+### Use inputs + VaDC for monthly calculations
 for (j in 1:ncol(DryBulb)){
-  for (i in 1:nrow(PlantChar)){
-    Ma = VaDC[i,]/svdry[i,j] 
+    Ma = VaDC/svdry[i,j] 
     LG = (cQ*8.33*60)/Ma
     MupWT = (NaturalWater[i,j]*(9/5)+32)
     gpm1 = 2.00803212851406
     gpm = gpm1
-    gpm_old = rep(0,nrow(CITI))
+    gpm_old = rep(0,nrow(CTI2))
     dgpm = 1
     times = 0
     thold = 4e-6 
@@ -193,8 +197,6 @@ for (j in 1:ncol(DryBulb)){
     SatH = data.frame(Tc,mb,psia,H,Tf,W)
 
     
-    ### Start the timer
-    ptm <- proc.time()
       while(dgpm > thold) {
         DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
         Ha2 = Ha1[i,j] + DH
@@ -206,8 +208,6 @@ for (j in 1:ncol(DryBulb)){
         gpm_old = gpm
         times = times + 1
         }
-    ### stop the timer
-    proc.time() - ptm
     
     cD = cHL/1000000
 
@@ -227,10 +227,35 @@ for (j in 1:ncol(DryBulb)){
   }
 }
 
+### stop the timer
+proc.time() - ptm
 
 ## Export to excel ----
 output = data.frame(cbind(PlantID,emin,emed,emax,e25,e75))
 cols = rep(colnames(DryBulb),5)
 colnames(output)[2:ncol(output)] = cols
 
-write.xlsx(output,"Tower_model_output.xlsx",row.names=F)
+write.csv(output,"Tower_model_output.csv",row.names=F)
+
+## Plots ----
+library(ggplot2)
+library(reshape2)
+library(RColorBrewer)
+
+### melt wide frames into long format and combine
+Twbm = melt(WetBulb[,1:12])
+emedm = melt(emed[,1:12])
+CC = cbind(Twbm,emedm[,3])
+colnames(CC) = c("month","Twb","medEvap")
+
+p = ggplot(data=CC)
+p = p + geom_point(aes(Twb,medEvap,color = month))
+p = p + scale_color_manual(values=c("royalblue4", "royalblue3",
+                                    "cornflowerblue", "darkgoldenrod",
+                                    "darkgoldenrod1", "firebrick3",
+                                    "darkred", "darkred",
+                                    "darkgoldenrod1", "darkgoldenrod",
+                                    "cornflowerblue", "royalblue3"))
+p = p + theme_grey(base_size=20)
+p
+
