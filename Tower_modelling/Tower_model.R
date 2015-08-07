@@ -1,6 +1,6 @@
 
 ## clear workspace environment
-rm(list = ls(all = TRUE)) 
+rm(list=ls(all=T)) 
 
 ## Set up workspace and import the data ----
 setwd("~/Thermoelectric/R_code/Thermoelectric/Tower_modelling")
@@ -9,7 +9,7 @@ setwd("~/Thermoelectric/R_code/Thermoelectric/Tower_modelling")
 ptm <- proc.time()
 
 ## read from CSV file
-filename = "Raw_input.csv"
+filename = "Winterized_input.csv"
 
 data = read.csv(filename, header=T, skip=4)
 param = read.csv(filename, header=T, skip=1, nrows=1,
@@ -44,9 +44,6 @@ colnames(NaturalWater) = col_names
 ### Wind speed at 2m W (mph)  										    									
 WindSpeed = data[51:62]
 colnames(WindSpeed) = col_names
-
-
-# Modelling Phase one 
 
 ## plant characteristics pre-calculations ----
   
@@ -138,7 +135,11 @@ emax=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 
+plant = 55177
+plantindex = which(PlantChar$Plant_ID==plant)
+
 for (i in 1:nrow(PlantChar)){
+#for (i in plantindex){
 
 ### typical steam
 typSteam = 92 + (DesignChar$Twb[i]-55)/40*28.5
@@ -163,7 +164,7 @@ CTI$SteamT = DesignChar$Twb[i] + CTI$Range + CTI$Approach2 + cond_app
 CTI2 = subset(CTI, Approach2 > min_app & Approach2 < max_app)
 CTI2 = subset(CTI, SteamT > min_steam & SteamT < max_steam)
 
-### something else
+### some other parameters
 cHL = 1000000
 cRange = CTI2[,4]
 cQ = cHL/(60*8.3*cRange)
@@ -171,8 +172,7 @@ cQ = cHL/(60*8.3*cRange)
 ### first calculate the volume air flow for the design conditions
 LGDC = CTI2[,8]
 MaDC = cQ*8.3*60/LGDC
-vdDC = svdry$design[i]
-VaDC = MaDC * vdDC
+VaDC = MaDC * svdry$design[i]
 
 
 ### Use inputs + VaDC for monthly calculations
@@ -244,11 +244,15 @@ library(RColorBrewer)
 
 ### melt wide frames into long format and combine
 Twbm = melt(WetBulb[,1:12])
+Tdbm = melt(DryBulb[,1:12])
 emedm = melt(emed[,1:12])
-CC = cbind(Twbm,emedm[,3])
-colnames(CC) = c("month","Twb","medEvap")
+CC = cbind(Twbm,Tdbm[,2],emedm[,3])
+colnames(CC) = c("month","Twb","Tdb","medEvap")
+CC$Plant_ID = rep(PlantChar$Plant_ID,each=12)
+CC2 = subset(CC, medEvap > 1.1)
 
-p = ggplot(data=CC)
+# all points
+p = ggplot(data=CC2)
 p = p + geom_point(aes(Twb,medEvap,color = month))
 p = p + scale_color_manual(values=c("royalblue4", "royalblue3",
                                     "cornflowerblue", "darkgoldenrod",
@@ -259,3 +263,10 @@ p = p + scale_color_manual(values=c("royalblue4", "royalblue3",
 p = p + theme_grey(base_size=20)
 p
 
+# subset of points
+p2 = ggplot(data=CC2,aes(Twb,medEvap,color = month))
+#p2 = p2 + geom_point(size=5)
+p2 = p2 + theme_grey(base_size=20)
+p2 = p2 
+p2 = p2 + geom_text(aes(label=Plant_ID),size=5)
+p2
