@@ -1,6 +1,6 @@
 User description of file,,,,,,
 Min approach,max approach,condenser approach,minimum steam temperature from manual,steam temperature cushion above wet bulb temperature,"cushion by which the steam temperature can exceed the ""typical"" steam temperature",
-5,15,5,79,5,5,
+5,15,5,79,15,5,
 C,Slope,Range,Approach_600,Approach_3500,WBT,LG  
 1.6,-0.6,10,8.25,7.287,68,1.2
 1.6,-0.6,10,12.56,11.275,68,1.8

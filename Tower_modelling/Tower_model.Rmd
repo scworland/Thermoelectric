@@ -18,85 +18,51 @@ This vignette details the steps of an R script file which implements a model bui
 
 ## Load model data
 
-The data is read into 8 different data frames from the input excel file using the [xlsx](https://cran.r-project.org/web/packages/xlsx/xlsx.pdf) package:
+The data is read into 8 different data frames from the input CSV file:
 
-```{r, echo=T, error=F, warning=F, message=F, cache=T}
-## Read input from excel
-library(xlsx)
+```{r, echo=T, error=F, warning=F, message=F, cache=F}
+## read from CSV file
+filename = "Winterized_input.csv"
 
-filename = "Towers_test_input_one_plant_7_17_2015.xlsx"
-sheetname = "Input_SCW"
+data = read.csv(filename, header=T, skip=4)
+param = read.csv(filename, header=T, skip=1, nrows=1,
+                 colClasses = c(rep(NA, 3), rep("NULL", 63)))
+
+min_T = param[1,1]
+min_approach = param[1,2]
+max_approach = param[1,3]
 
 ### Plant characteristics
-PlantChar = read.xlsx(file = filename,
-                      sheetIndex = sheetname,
-                      colIndex = 1:3,
-                      startRow = 2,
-                      header = TRUE,
-                      stringsAsFactors = FALSE)
+PlantChar = data[1:3]
 
 ### Design characteristics
-DesignChar = read.xlsx(file = filename,
-                       sheetIndex = sheetname,
-                       colIndex = 64:66,
-                       startRow = 2,
-                       header = TRUE,
-                       stringsAsFactors = FALSE)
+DesignChar = data[64:66]
 
 ### Added heat load MMBtu
-HeatLoad = read.xlsx(file = filename,
-                     sheetIndex = sheetname,
-                     colIndex = 4:15,
-                     startRow = 2,
-                     header = TRUE,
-                     stringsAsFactors = FALSE)
+HeatLoad = data[4:15]
+col_names = colnames(HeatLoad)
 
-### Dry bulb air temperature Ta (oC)            					
-DryBulb = read.xlsx(file = filename,
-                    sheetIndex = sheetname,
-                    colIndex = 16:27,
-                    startRow = 2,
-                    header = TRUE,
-                    stringsAsFactors = FALSE)
+### Dry bulb air temperature Ta             				
+DryBulb = data[16:27]
+colnames(DryBulb) = col_names
 
-### Wet bulb air temperature Twb (oC)    									
-WetBulb = read.xlsx(file = filename,
-                    sheetIndex = sheetname,
-                    colIndex = 28:39,
-                    startRow = 2,
-                    header = TRUE,
-                    stringsAsFactors = FALSE)
+### Wet bulb air temperature Twb    									
+WetBulb = data[28:39]
+colnames(WetBulb) = col_names
 
-### Natural water temperature T (oC)  										
-NaturalWater = read.xlsx(file = filename,
-                         sheetIndex = sheetname,
-                         colIndex = 40:51,
-                         startRow = 2,
-                         header = TRUE,
-                         stringsAsFactors = FALSE)
+### Natural water temperature 										
+NaturalWater = data[40:51]
+colnames(NaturalWater) = col_names
 
 ### Wind speed at 2m W (mph)  										    									
-WindSpeed = read.xlsx(file = filename,
-                      sheetIndex = sheetname,
-                      colIndex = 51:62,
-                      startRow = 2,
-                      header = TRUE,
-                      stringsAsFactors = FALSE)
-
-### locations and names of plants
-location = read.xlsx(file = filename,
-                      sheetIndex = "locations_SCW",
-                      colIndex = 1:4,
-                      startRow = 1,
-                      header = TRUE,
-                      stringsAsFactors = FALSE)
+WindSpeed = data[51:62]
+colnames(WindSpeed) = col_names
 ```
 
-## Plant characteristics calculations
-
+## Plant characteristics pre-calculations
 There are several calculations for the plant characteristic dataframe. The first is to create a separate dataframe for the plant ID. This is currently used only in the output file, but it might be useful later,
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## Create unique vector for plant ID
 PlantID = data.frame(PlantChar[,1])
 colnames(PlantID) = "Plant_ID"
@@ -112,7 +78,7 @@ $$
 Patm_{psia} = Patm_{mb}/68.9
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## convert elevation to mb to psia for all plants 
 PlantChar$atm_mb = ((44331.514-(PlantChar$Elevation*0.3048))/11880.516)^(1/0.1902632) 
 PlantChar$atm_psia = PlantChar$atm_mb/68.94757293 
@@ -122,16 +88,20 @@ PlantChar$atm_psia = PlantChar$atm_mb/68.94757293
 
 I grouped the calculations together in this section because they all use dataframes of the same size and format, where the rows correspond to the individual plants, and the columns are the months Jan-Dec & the design condition. An example is shown below.
 
-1. Add the design dry bulb, wet bulb, and natural water temperature to the monthly dataframes,
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+1. Add the design dry bulb, wet bulb, and natural water temperature to the monthly dataframes, and ``winterize'' the input based on the value provided by the user:
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## Add design Twb, Tdb and nwT to WetBulb, DryBulb and NaturalWater dataframes
 DryBulb$design = (DesignChar$Tdb-32)*5/9
 WetBulb$design = (DesignChar$Twb-32)*5/9
 NaturalWater$design = DesignChar$nwT
+
+## set minimum T for wet and dry bulbs
+DryBulb[DryBulb<min_T] = min_T
+WetBulb[WetBulb<min_T] = min_T
 ```
 
 All of the dataframes in this section are of the following format:
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 library(knitr)
 kable(head(DryBulb), digits=2, align='c')
 ```
@@ -142,7 +112,7 @@ $$
 P_w = 6.1 * e^{1448.49 * [(1/273)-(1/(Twb+273))]} - 4.95 * ln((Twb+273)/273)
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## Calculate saturation vapor pressure at inlet air wet bulb temperature
 Pw_mb = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(WetBulb+273)))+
                      (-0.545/0.11)*log((WetBulb+273)/273)) 
@@ -156,7 +126,7 @@ $$
 P_s = 6.1 * e^{1448.49 * [(1/273)-(1/(Tdb+273))]} - 4.95 * ln((Tdb+273)/273)
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## saturated vapor pressure from dry bulb temperature
 Ps_mb = 6.1078*exp(((595.9-273*-0.545)/0.11)*((1/273)-(1/(DryBulb+273)))+
                          (-0.545/0.11)*log((DryBulb+273)/273))
@@ -170,7 +140,7 @@ $$
 P_v = P_w - (P_s*6.6e-4*(Tdb-Twb)*(1+(1.15e-3*Twb)))
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## Actual vapor pressure in inlet air
 vap_mb = Pw_mb - (PlantChar$atm_mb*0.00066*(DryBulb-WetBulb)*(1+(0.00115*WetBulb)))
 ```
@@ -181,7 +151,7 @@ $$
 \phi = vap/P_s
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## relative humidity of inlet air
 phi = vap_mb/Ps_mb
 ```
@@ -192,7 +162,7 @@ $$
 \omega_1 = \frac{0.622 * \phi * P_s}{P_{atm} - \phi * P_s}
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## Pounds of water vapor per pound of dry air in inlet air, calculated per L&M '71 eqn 3
 w1 = (0.622*phi*Ps_psia)/(PlantChar$atm_psia-(phi*Ps_psia))
 ```
@@ -203,7 +173,7 @@ $$
 Ha_1 = 0.24*Tdb_F + \omega_1*(1061.8 + 0.44*Tdb_F)
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## enthalpy of inlet air calculated per L&M '71 eqn 4
 Ha1=0.24*(DryBulb*(9/5)+32)+w1*(1061.8+0.44*(DryBulb*(9/5)+32))
 ```
@@ -214,7 +184,7 @@ $$
 \upsilon = ((1 + w1*1.6)*286.9*((273.1+Tdb)/(P_{atm}*6894.8))/0.3^3)/2.2
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## inlet air specific volume in cubic feet per pound - pertains to vapor/gas mixture
 sv = ((1+w1*1.585918)*286.9*((273.15+DryBulb)/(PlantChar$atm_psia*6894.757))/0.3048^3)/2.20462262
 ```
@@ -225,7 +195,7 @@ $$
 \upsilon_d = \upsilon * (1+ \omega_1)
 $$
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ## specific volume of dry air ft3/lb
 svdry = sv*(1+w1)
 ```
@@ -234,7 +204,7 @@ svdry = sv*(1+w1)
 
 Part of the model involves creating a lookup table. R does not have a "good way" to do this. I found a nice function already written on [Stack Overflow](http://stackoverflow.com/questions/10160400/r-find-nearest-index) that uses the `findInterval` function,
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 nearest.vec <- function(x, vec)
 {
   smallCandidate <- findInterval(x, vec, all.inside=TRUE)
@@ -247,46 +217,35 @@ nearest.vec <- function(x, vec)
 
 ## Modelling
 
-The following lines of code compose the machine that does the work. 
+The following lines of code comprise the machine that does the work. 
 
-1. To allow for a range of performance, descriptive statistics are extracted from a suite of tower characteristics used in the model. Read in the tower characteristics below,
+1. To allow for a range of performance, descriptive statistics are extracted from a suite of tower characteristics used in the model. Read in the tower characteristics below and name the parameters,
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 library(knitr)
-CITI = read.xlsx(file = filename,
-                 sheetIndex = "CITI",
-                 colIndex = 1:6,
-                 startRow = 1,
-                 header = TRUE,
-                 stringsAsFactors = FALSE)
+### Read in CTI file
+CTI = read.csv(file = "CTI_input.csv", header=T, skip=3)
+CTI_param = read.csv("CTI_input.csv", header=T, skip=1, nrows=1,
+                 colClasses = c(rep(NA, 5), rep("NULL", 1)))
 
-cHL = 1000000
-cRange = CITI[,4]
-cQ = cHL/(60*8.3*cRange)
-
-kable(head(CITI), digits=2, align='c')
+### name parameters created by user
+min_app = CTI_param[1,1]
+max_app = CTI_param[1,2]
+cond_app = CTI_param[1,3]
+min_steam = CTI_param[1,4]
+steam_cushion = CTI_param[1,5]
 ```
 
-2. The monthly calculations depend on the air flow volume from the design conditions. The following code segment calculates the air flow volume for the design conditions for each plant and the suite of tower characteristics. The structure of the matrix created below, `VaDC`, is rows = corresponds to plants, columns = design air flow volume for each tower characteristic. For example, if there were 100 plants in the input file, and 50 tower characteristics loaded from the CITI file above, `VaDC` would be a 100x50 matrix where each element would contain a air flow volume for a specific plant and a specific air flow condition, for the design condition from each plant. For details of each step, see below in the sections that deals with the larger for loop.
-
-
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
-### preallocate the tower airflow volume matrix
-VaDC = matrix(ncol=nrow(CITI), nrow=nrow(PlantChar))
-
-### first calculate the volume air flow for the design conditions
-for (i in 1:nrow(PlantChar)){
-  LGDC = CITI[,5]
-  MaDC = cQ*8.3*60/LGDC
-  vdDC = svdry$design[i]
-  VaDC[i,] = MaDC * vdDC
-}
-
+Create a new vector of L/G mass ratio values that will be used in interpolation later,
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
+### Create new LG values (1,1.33,1.667,2)
+CTI$LG2 = rep(c(1,1+(1/3),1+(2/3),2))
+kable(head(CTI), digits=2, align='c')
 ```
 
-3. The final steps basically happen all at once and are contained within a *while loop*, nested within a *for loop*, nested within a larger *for loop*. It begins by preallocating the min, med, max, 25th percentile, and 75th percentile matrices that are filled during the looping process.
+3. The final steps basically happen all at once and are contained within a *while loop*, nested within a *for loop*, nested within a larger *for loop*. It begins by preallocating the min, med, max, 25th percentile, and 75th percentile matrices that are filled during the looping process:
 
-```{r, eval=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ### Use inputs + VaDC for remaining calculations
 ### preallocate matrices
 emin=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
@@ -296,29 +255,29 @@ e25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 ```
 
-The highest level loop contains the index [j] for the months and the design conditions (I will refer to this as month-DC from now on. As a reminder of the structure, see the table under number 1 in the Month, design characteristics, and plant calculations section),
+The highest level loop contains the index [i] for the plants,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
-for (j in 1:ncol(DryBulb)){...}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+for (i in 1:nrow(PlantChar)){...}
 ```
 
-nested within this loop is an index [i] for the plants,
+nested within this loop is an index [j] for the months and design conditions (I will refer to this as month-DC from now on. As a reminder of the structure, see the table under number 1 in the Month, design characteristics, and plant calculations section),
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
-for (i in 1:nrow(PlantChar)){...}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+for (j in 1:ncol(DryBulb)){...}
 ```
 
 nested within this loop is a while loop that iterates through equations 5-10 from L&M '71. The while loop continues to run the code within the `{ }` until the change in the flow makeup reaches a predefined threshold, `thold`,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 while(dgpm > thold) {...}
 ```
 
 so from a "meta-code" level, the looping is in the form,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
-for (j in 1:ncol(DryBulb)){
-  for (i in 1:nrow(PlantChar)){...
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+for (i in 1:nrow(PlantChar)){...
+  for (j in 1:ncol(DryBulb)){
     while(dgpm > thold) {...
     }
   }
@@ -327,27 +286,92 @@ for (j in 1:ncol(DryBulb)){
 
 The remaining portion of this section steps through the components of the loops. Although each section is described separately, it is important to keep in mind that they operate within loops. 
 
+The first steps within the foor loop handle the selections of tower suites from the CTI input. The ``realist'' tower suites for each plant do not change monthly, and are established in the outermost level of the looping process. These steps use somewhat complicated indexing to efficiently move through the steps. The first step is to create a vector of interpolated approaches at the plant-specific elevation,
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+for (i in 1:nrow(PlantChar)){
+
+### Create a vector of approaches at the new elevation
+CTI$Approach_elev = (CTI[,5]-CTI[,4])/(3500-600)*(PlantChar$Elevation[i]-600) + CTI[,4]
+```
+
+The next step is to interpolate the approach for for different wetbulb temperatures for the elevation of the plant. The results of this section feed into the next section, which does the actual interpolation.
+
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+### Create vectors needed for approach interpolation for different wet bulb temperatures
+LGR = (CTI$LG2-1.2)/(1.8-1.2)
+diffA68 = rep(diff(CTI$Approach_elev)[seq(1, nrow(CTI), 4)], each=4)
+diffA78 = rep(diff(CTI$Approach_elev)[seq(3, nrow(CTI), 4)], each=4)
+APP68 = LGR*diffA68 + rep(CTI$Approach_elev[seq(1, nrow(CTI), 4)], each=4)
+APP78 = LGR*diffA78 + rep(CTI$Approach_elev[seq(3, nrow(CTI), 4)], each=4)
+```
+
+Interpolate the new approach for LG, elevation and design Twb,
+
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+CTI$Approach2 = ((DesignChar$Twb[i]-68)/10)*(APP78-APP68)+APP68
+```
+
+Add the steam temperature, and the steam parameters to be used below,
+
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+### add steam T
+CTI$SteamT = DesignChar$Twb[i] + CTI$Range + CTI$Approach2 + cond_app
+
+### typical steam
+typSteam = 92 + (DesignChar$Twb[i]-55)/40*28.5
+max_steam = typSteam + steam_cushion
+```
+
+First, the approach is checked to make sure it falls in the conventional range, here taken to be 5 to 15 deg F. 
+
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+CTI2 = subset(CTI, Approach2 > min_app & Approach2 < max_app)
+```
+
+Second, the estimated steam condensation temperature is checked against typical values. Too high a condensation temperature will detract from turbine efficiency; too low a steam temperature is unnecessary and expensive to achieve. Steam condensation temperature is estimated as the sum of the wet bulb temperature, the tower range, tower approach, and the condenser approach. 
+
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+CTI2 = subset(CTI2, SteamT > min_steam & SteamT < max_steam)
+```
+
+The final tower suite data frame, CTI2, contains the censored tower suites,
+
+The monthly calculations depend on the air flow volume from the design conditions. The following code segment calculates the air flow volume for the design conditions for plant [i] and the suite of tower characteristics.
+
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+### parameters
+cHL = 1000000
+cRange = CTI2[,3]
+cQ = cHL/(60*8.3*cRange)
+
+### first calculate the volume air flow for the design conditions
+LGDC = CTI2[,8]
+MaDC = cQ*8.3*60/LGDC
+VaDC = MaDC * svdry$design[i]
+```
+
 Calculate the air flow mass for a particular plant [i], month-DC [j], and the air flow volume for each tower characteristic in `VaDC`. `Ma` is a vector the same length as the number of tower characteristics,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
+for (j in 1:ncol(DryBulb)){
 Ma = VaDC[i,]/svdry[i,j] 
 ```
 
 Calculate the L/G mass ratio for the plant [i] and month-DC [j]. `LG` does not need the for loop indices because it is dependent on `Ma`, which is already defined above. `Ma` will contain different values for each month x plant combination), and `cQ`, which is defined outside the for loop and only changes with tower characteristics,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 LG = (cQ*8.33*60)/Ma
 ```
 
 Extract the natural water temperature for plant [i] and month-DC [j], and convert to degrees F. This is referred to as the makeup water temperature,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 MupWT = (NaturalWater[i,j]*(9/5)+32)
 ```
 
 As the code is preparing to iteratively solve equations 1-5, it needs a starting point for the makeup flow. This is set to the 1% assumed makeup flow. The code also needs something to start with for the `gpm_old` variable, which needs to be the same length as the number of tower characteristics. I arbitrarily set this to zero,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 gpm1 = 2.00803212851406
 gpm = gpm1
 gpm_old = rep(0,nrow(CITI))
@@ -355,7 +379,7 @@ gpm_old = rep(0,nrow(CITI))
 
 The code also needs a starting point for `dgpm`, the change in makeup flow after each iteration. Basically, while this number is still large (greater than threshold value), the while loop will keep running. We can set this to anything, and again, I arbitrarily chose 1. I also establish a variable to keep track of the number of times the while loop iterates (`times`), and finally, I set a threshold to end the while loop (`thold`). I chose this value because it is on the order of a ml/hr change in makeup flow, and I suspect anything less than that is trivial. It can be set to zero (while loop stops when there is exactly zero change in makeup flow), or whatever you like. The while loop takes less than 0.01 seconds to execute,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 dgpm = 1
 times = 0
 thold = 4e-6 
@@ -363,7 +387,7 @@ thold = 4e-6
 
 The next step is to build the lookup table, which I call `SatH` below. `SatH` changes with each plants atmospheric pressure (elevation). The lookup table is "seeded" with a sequence of temperature C values, which incrementally changes by 0.01 degrees from 0 to 80 degrees. The rest of the steps build linearly from that. This step takes less than 0.01 seconds, so there really isn't much reason to invert the enthalpy equation,
 
-```{r, eval=T, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 library(knitr)
 Tc = seq(0.00, 80, 0.01) 
 Tf = (Tc*(9/5))+32 
@@ -378,14 +402,14 @@ kable(head(SatH), digits=2, align='c')
 
 Initiate the while loop and calculate the change in enthalpy for the plant [i] and month-DC [j] for each tower characteristic,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 while(dgpm > thold) {
         DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
 ```
 
 calculate the exit enthalpy for the plant [i] and month-DC [j] for each tower characteristic,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 while(dgpm > thold) {
         DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
         Ha2 = Ha1[i,j] + DH
@@ -393,7 +417,7 @@ while(dgpm > thold) {
 
 Use the custom function to find the index of the closest enthalpy values in the lookup table to the exit enthalpy values calculated above,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
       while(dgpm > thold) {
         DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
         Ha2 = Ha1[i,j] + DH
@@ -402,7 +426,7 @@ Use the custom function to find the index of the closest enthalpy values in the 
 
 Then use the index to extract the outlet temperature and moisture content for the plant [i] and month-DC [j] for each tower characteristic, from the lookup table
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
       while(dgpm > thold) {
         DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
         Ha2 = Ha1[i,j] + DH
@@ -413,7 +437,7 @@ Then use the index to extract the outlet temperature and moisture content for th
 
 Calculate the makeupflow based on the mass air flow, and the inlet and exit moisture content. Again, this provides the makeup flow for each plant [i] and month-DC [j] for the suite of tower characteristics,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
       while(dgpm > thold) {
         DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
         Ha2 = Ha1[i,j] + DH
@@ -421,12 +445,11 @@ Calculate the makeupflow based on the mass air flow, and the inlet and exit mois
         To = SatH$Tf[index]
         W2 = SatH$W[index]
         gpm = Ma*(W2-w1[i,j])/(8.3*60)
-        }
 ```
 
 Finally, calculate the change in the makeup flow for the iteration, and set the new flow value to the old flow value to be used in the next iteration. Notice that the maximum change is taken, this is because the we want the maximum change in makeup flow of all the tower characteristics to be less than the threshold. The `times` counter just keeps track of the number of iterations it takes for the change in flow to be less than the threshold.
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
       while(dgpm > thold) {
         DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
         Ha2 = Ha1[i,j] + DH
@@ -441,13 +464,13 @@ Finally, calculate the change in the makeup flow for the iteration, and set the 
 ```
 
 The next steps are outside the while loop, but still within the for loops. Calculate the condenser duty in MMBtu/hr,
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 cD = cHL/1000000
 ```
 
 Calculate the water flow to evaporate the entire duty for each plant [i] and month-DC [j] for the suite of tower characteristics,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 Dutygpm = cD*(1000000*7.48051945564918/(60*(1000*(1-((NaturalWater[i,j])+
         288.9414)/(508929.2*((NaturalWater[i,j])+68.12963))*
         ((NaturalWater[i,j])-3.9863)^2))*0.0624*((((-0.0000614342)*
@@ -457,13 +480,13 @@ Dutygpm = cD*(1000000*7.48051945564918/(60*(1000*(1-((NaturalWater[i,j])+
 
 Calculate the evaporation ratios for each plant [i] and month-DC [j] for the suite of tower characteristics,
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 Evap = gpm/Dutygpm
 ```
 
 Now all thats left is to extract the min, med, max, 25th percentile, and 75th percentiles of the suite of tower characteristics for or each plant [i] and month-DC [j]. Each iteration of the inmost loop adds a value for every plant for a given month-DC, and every iteration of the outside loop changes the month. 
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
     emin[i,j] = min(Evap)
     emed[i,j] = median(Evap)
     emax[i,j] = max(Evap)
@@ -473,7 +496,7 @@ Now all thats left is to extract the min, med, max, 25th percentile, and 75th pe
 
 These matrices are then combined and exported to excel
 
-```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=T}
+```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 output = data.frame(cbind(PlantID,emin,emed,emax,e25,e75))
 cols = rep(colnames(DryBulb),5)
 colnames(output)[2:ncol(output)] = cols
@@ -483,80 +506,98 @@ write.xlsx(output,"Tower_model_output.xlsx",row.names=F)
 
 Below is the uninterrupted looping process, that combines all the steps (expect the export), described above,
 
-```{r, eval=T, echo=T, error=F, warning=F, message=F, cache=T}
-for (j in 1:ncol(DryBulb)){
-  
-      for (i in 1:nrow(PlantChar)){
-        Ma = VaDC[i,]/svdry[i,j] 
-        LG = (cQ*8.33*60)/Ma
-        MupWT = (NaturalWater[i,j]*(9/5)+32)
-        gpm1 = 2.00803212851406
-        gpm = gpm1
-        gpm_old = rep(0,nrow(CITI))
-        dgpm = 1
-        times = 0
-        thold = 4e-6 
-    
-        ## Create lookup table 
-        Tc = seq(0.00, 80, 0.01) 
-        Tf = (Tc*(9/5))+32 
-        mb = 6.1078*10^((Tc*7.5)/(Tc+237.3)) 
-        psia = mb/68.94757293 
-        W = (0.622*mb)/(PlantChar$atm_mb[i]-(0.378*mb))
-        H = (0.24*Tf)+(W*(1061+0.444*Tf))
-        SatH = data.frame(Tc,mb,psia,H,Tf,W)
-    
-            while(dgpm > thold) {
-              DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
-              Ha2 = Ha1[i,j] + DH
-              index = nearest.vec(Ha2,SatH$H)
-              To = SatH$Tf[index]
-              W2 = SatH$W[index]
-              gpm = Ma*(W2-w1[i,j])/(8.3*60)
-              dgpm = max(abs(gpm-gpm_old))
-              gpm_old = gpm
-              times = times + 1
-              }
-    
-        cD = cHL/1000000
+```{r, eval=T, echo=T, error=F, warning=F, message=F, cache=F}
+for (i in 1:nrow(PlantChar)){
+#for (i in plantindex){
 
-        Dutygpm = cD*(1000000*7.48051945564918/(60*(1000*(1-((NaturalWater[i,j])+
-                288.9414)/(508929.2*((NaturalWater[i,j])+68.12963))*
-                ((NaturalWater[i,j])-3.9863)^2))*0.0624*((((-0.0000614342)*
-                (NaturalWater[i,j])^3 + (0.00158927)*(NaturalWater[i,j])^2 - (2.36418)*
-                (NaturalWater[i,j]) + 2500.79)*0.947817/(2.2046)))))
+### typical steam
+typSteam = 92 + (DesignChar$Twb[i]-55)/40*28.5
+max_steam = typSteam + steam_cushion
+  
+CTI$Approach_elev = (CTI[,5]-CTI[,4])/(3500-600)*(PlantChar$Elevation[i]-600) + CTI[,4]
+
+### Create vectors needed for approach interpolation
+LGR = (CTI$LG2-1.2)/(1.8-1.2)
+diffA68 = rep(diff(CTI$Approach_elev)[seq(1, nrow(CTI), 4)], each=4)
+diffA78 = rep(diff(CTI$Approach_elev)[seq(3, nrow(CTI), 4)], each=4)
+APP68 = LGR*diffA68 + rep(CTI$Approach_elev[seq(1, nrow(CTI), 4)], each=4)
+APP78 = LGR*diffA78 + rep(CTI$Approach_elev[seq(3, nrow(CTI), 4)], each=4)
+
+### Interpolate new approach for LG, elevation and design Twb
+CTI$Approach2 = ((DesignChar$Twb[i]-68)/10)*(APP78-APP68)+APP68
+
+### add steam T
+CTI$SteamT = DesignChar$Twb[i] + CTI$Range + CTI$Approach2 + cond_app
+
+### censor towers
+CTI2 = subset(CTI, Approach2 > min_app & Approach2 < max_app)
+CTI2 = subset(CTI2, SteamT > min_steam & SteamT < max_steam)
+#CTI2 = CTI; # do not censor
+
+### some other parameters
+cHL = 1000000
+cRange = CTI2[,3]
+cQ = cHL/(60*8.3*cRange)
+
+### first calculate the volume air flow for the design conditions
+LGDC = CTI2[,8]
+MaDC = cQ*8.3*60/LGDC
+VaDC = MaDC * svdry$design[i]
+
+
+### Use inputs + VaDC for monthly calculations
+  for (j in 1:ncol(DryBulb)){
+    Ma = VaDC/svdry[i,j] 
+    LG = (cQ*8.33*60)/Ma
+    MupWT = (NaturalWater[i,j]*(9/5)+32)
+    gpm1 = 2.00803212851406
+    gpm = gpm1
+    gpm_old = rep(0,nrow(CTI2))
+    dgpm = 1
+    times = 0
+    thold = 4e-6 
+
+    ## Create lookup table 
+    Tc = seq(0.00, 80, 0.01) 
+    Tf = (Tc*(9/5))+32 
+    mb = 6.1078*10^((Tc*7.5)/(Tc+237.3)) 
+    psia = mb/68.94757293 
+    W = (0.622*mb)/(PlantChar$atm_mb[i]-(0.378*mb))
+    H = (0.24*Tf)+(W*(1061+0.444*Tf))
+    SatH = data.frame(Tc,mb,psia,H,Tf,W)
+
     
-        Evap = gpm/Dutygpm
+      while(dgpm > thold) {
+        DH = ((MupWT-32)*gpm*60*8.3+cHL)/Ma
+        Ha2 = Ha1[i,j] + DH
+        index = nearest.vec(Ha2,SatH$H)
+        To = SatH$Tf[index]
+        W2 = SatH$W[index]
+        gpm = Ma*(W2-w1[i,j])/(8.3*60)
+        dgpm = max(abs(gpm-gpm_old))
+        gpm_old = gpm
+        times = times + 1
+        }
     
-        emin[i,j] = min(Evap)
-        emed[i,j] = median(Evap)
-        emax[i,j] = max(Evap)
-        e25[i,j] = quantile(Evap,0.25)
-        e75[i,j] = quantile(Evap,0.75)
-      }
+    cD = cHL/1000000
+
+    Dutygpm = cD*(1000000*7.48051945564918/(60*(1000*(1-((NaturalWater[i,j])+
+        288.9414)/(508929.2*((NaturalWater[i,j])+68.12963))*
+        ((NaturalWater[i,j])-3.9863)^2))*0.0624*((((-0.0000614342)*
+        (NaturalWater[i,j])^3 + (0.00158927)*(NaturalWater[i,j])^2 - (2.36418)*
+        (NaturalWater[i,j]) + 2500.79)*0.947817/(2.2046)))))
+    
+    Evap = gpm/Dutygpm
+    
+    emin[i,j] = min(Evap)
+    emed[i,j] = median(Evap)
+    emax[i,j] = max(Evap)
+    e25[i,j] = quantile(Evap,0.25)
+    e75[i,j] = quantile(Evap,0.75)
+    
+  }
 }
 ```
 
-## Mapping
 
-Below is a map of the maximum summer evaporation ratio,
 
-```{r, eval=T, error=F, warning=F, message=F, fig.align='center', cache=T}
-library(RColorBrewer)
-library(ggmap)
-
-## subset the plants used in the model
-PlantChar$max = emax[,8]
-plants = merge(location,PlantChar,by="Plant_ID")
-plants = subset(plants, lon > -130)
-
-## load the state data
-state = map_data('state')
-
-m1 = ggplot() + ggtitle("Max Aug Evap Ratio")
-m1 = m1 + geom_polygon(data=state,aes(long,lat, group=group), color = "white", fill= "black") 
-m1 = m1 + coord_fixed(1.3) + theme_bw(base_size = 20)
-m1 = m1 + geom_point(data=plants, aes(lon,lat,color=max), size=2)
-m1 = m1 + scale_color_gradientn(colours = rev(brewer.pal(n=11,name = 'RdYlBu')))
-m1
-```

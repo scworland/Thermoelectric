@@ -134,6 +134,8 @@ emed=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 emax=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+rsquared=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar)) #temporary
+beta2=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar)) #temporary
 
 plant = 55177
 plantindex = which(PlantChar$Plant_ID==plant)
@@ -162,11 +164,12 @@ CTI$SteamT = DesignChar$Twb[i] + CTI$Range + CTI$Approach2 + cond_app
 
 ### censor towers
 CTI2 = subset(CTI, Approach2 > min_app & Approach2 < max_app)
-CTI2 = subset(CTI, SteamT > min_steam & SteamT < max_steam)
+CTI2 = subset(CTI2, SteamT > min_steam & SteamT < max_steam)
+#CTI2 = CTI; # do not censor
 
 ### some other parameters
 cHL = 1000000
-cRange = CTI2[,4]
+cRange = CTI2[,3]
 cQ = cHL/(60*8.3*cRange)
 
 ### first calculate the volume air flow for the design conditions
@@ -224,6 +227,10 @@ for (j in 1:ncol(DryBulb)){
     emax[i,j] = max(Evap)
     e25[i,j] = quantile(Evap,0.25)
     e75[i,j] = quantile(Evap,0.75)
+    
+    #temporary
+    rsquared[i,j] = summary(lm(Evap~DH))$r.squared
+    beta2[i,j] = summary(lm(Evap~DH))$coefficients[2]
   }
 }
 
@@ -243,30 +250,33 @@ library(reshape2)
 library(RColorBrewer)
 
 ### melt wide frames into long format and combine
-Twbm = melt(WetBulb[,1:12])
-Tdbm = melt(DryBulb[,1:12])
-emedm = melt(emed[,1:12])
+Twbm = melt(WetBulb[,1:13])
+Tdbm = melt(DryBulb[,1:13])
+emedm = melt(emed[,1:13])
 CC = cbind(Twbm,Tdbm[,2],emedm[,3])
 colnames(CC) = c("month","Twb","Tdb","medEvap")
-CC$Plant_ID = rep(PlantChar$Plant_ID,each=12)
-CC2 = subset(CC, medEvap > 1.1)
+CC$Plant_ID = rep(PlantChar$Plant_ID,13)
+CC2 = subset(CC, Twb > 25 & medEvap < 0.8)
 
 # all points
-p = ggplot(data=CC2)
-p = p + geom_point(aes(Twb,medEvap,color = month))
+p = ggplot(data=CC)
+p = p + geom_point(aes(Twb,medEvap,color = month),size=4)
 p = p + scale_color_manual(values=c("royalblue4", "royalblue3",
                                     "cornflowerblue", "darkgoldenrod",
                                     "darkgoldenrod1", "firebrick3",
                                     "darkred", "darkred",
                                     "darkgoldenrod1", "darkgoldenrod",
-                                    "cornflowerblue", "royalblue3"))
+                                    "cornflowerblue", "royalblue3",
+                                    "green"))
 p = p + theme_grey(base_size=20)
+p = p + geom_text(data=CC2, aes(Twb,medEvap,label=Plant_ID),size=5)
+p = p + geom_hline(aes(yintercept=1))
 p
 
 # subset of points
 p2 = ggplot(data=CC2,aes(Twb,medEvap,color = month))
 #p2 = p2 + geom_point(size=5)
 p2 = p2 + theme_grey(base_size=20)
-p2 = p2 
+p2 = p2 + xlim(25,30)
 p2 = p2 + geom_text(aes(label=Plant_ID),size=5)
 p2
