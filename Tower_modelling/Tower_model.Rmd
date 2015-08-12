@@ -18,16 +18,28 @@ This vignette details the steps of an R script file which implements a model bui
 
 ## Load model data
 
-The data is read into 8 different data frames from the input CSV file:
+The data is read in from the input CSV file:
 
 ```{r, echo=T, error=F, warning=F, message=F, cache=F}
 ## read from CSV file
-filename = "Winterized_input.csv"
+input = "Winterized_input.csv"
+CTI_input = "CTI_input.csv"
 
-data = read.csv(filename, header=T, skip=4)
-param = read.csv(filename, header=T, skip=1, nrows=1,
+### main data file
+data = read.csv(input, header=T, skip=7)
+
+### parameters specified by user
+param = read.csv(input, header=T, skip=4, nrows=1,
                  colClasses = c(rep(NA, 3), rep("NULL", 63)))
 
+### days in each months specified by user
+monthdays = read.csv(input, header=T, skip=2, nrows=1,
+                 colClasses = c(rep(NA, 13), rep("NULL", 53)))
+
+### location CSV file (only need if mapping)
+location = read.csv("plant_locations.csv",header=T)
+
+### assign variable names to the parameters
 min_T = param[1,1]
 min_approach = param[1,2]
 max_approach = param[1,3]
@@ -243,7 +255,7 @@ CTI$LG2 = rep(c(1,1+(1/3),1+(2/3),2))
 kable(head(CTI), digits=2, align='c')
 ```
 
-3. The final steps basically happen all at once and are contained within a *while loop*, nested within a *for loop*, nested within a larger *for loop*. It begins by preallocating the min, med, max, 25th percentile, and 75th percentile matrices that are filled during the looping process:
+3. The final steps basically happen all at once and are contained within a *while loop*, nested within a *for loop*, nested within a larger *for loop*. It begins by preallocating the min, med, max, 25th percentile, and 75th percentile matrices (for both evaporation and consumption) that are filled during the looping process:
 
 ```{r, eval=T, error=F, warning=F, message=F, cache=F}
 ### Use inputs + VaDC for remaining calculations
@@ -253,6 +265,12 @@ emed=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 emax=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+
+cmin=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+cmed=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+cmax=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+c25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+c75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 ```
 
 The highest level loop contains the index [i] for the plants,
@@ -388,7 +406,6 @@ thold = 4e-6
 The next step is to build the lookup table, which I call `SatH` below. `SatH` changes with each plants atmospheric pressure (elevation). The lookup table is "seeded" with a sequence of temperature C values, which incrementally changes by 0.01 degrees from 0 to 80 degrees. The rest of the steps build linearly from that. This step takes less than 0.01 seconds, so there really isn't much reason to invert the enthalpy equation,
 
 ```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
-library(knitr)
 Tc = seq(0.00, 80, 0.01) 
 Tf = (Tc*(9/5))+32 
 mb = 6.1078*10^((Tc*7.5)/(Tc+237.3)) 
@@ -396,8 +413,6 @@ psia = mb/68.94757293
 W = (0.622*mb)/(PlantChar$atm_mb[i]-(0.378*mb))
 H = (0.24*Tf)+(W*(1061+0.444*Tf))
 SatH = data.frame(Tc,mb,psia,H,Tf,W)
-
-kable(head(SatH), digits=2, align='c')
 ```
 
 Initiate the while loop and calculate the change in enthalpy for the plant [i] and month-DC [j] for each tower characteristic,
@@ -478,10 +493,11 @@ Dutygpm = cD*(1000000*7.48051945564918/(60*(1000*(1-((NaturalWater[i,j])+
         (NaturalWater[i,j]) + 2500.79)*0.947817/(2.2046)))))
 ```
 
-Calculate the evaporation ratios for each plant [i] and month-DC [j] for the suite of tower characteristics,
+Calculate the evaporation ratios and actual consumption values for each plant [i] and month-DC [j] for the suite of tower characteristics. The heat load has to be converted from MBTU/month, the BTU/hr,
 
 ```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 Evap = gpm/Dutygpm
+Consumption = ((HeatLoad[i,1]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
 ```
 
 Now all thats left is to extract the min, med, max, 25th percentile, and 75th percentiles of the suite of tower characteristics for or each plant [i] and month-DC [j]. Each iteration of the inmost loop adds a value for every plant for a given month-DC, and every iteration of the outside loop changes the month. 
@@ -492,23 +508,35 @@ Now all thats left is to extract the min, med, max, 25th percentile, and 75th pe
     emax[i,j] = max(Evap)
     e25[i,j] = quantile(Evap,0.25)
     e75[i,j] = quantile(Evap,0.75)
+
+    cmin[i,j] = min(Consumption)
+    cmed[i,j] = median(Consumption)
+    cmax[i,j] = max(Consumption)
+    c25[i,j] = quantile(Consumption,0.25)
+    c75[i,j] = quantile(Consumption,0.75)
 ```
 
 These matrices are then combined and exported to excel
 
 ```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
-output = data.frame(cbind(PlantID,emin,emed,emax,e25,e75))
-cols = rep(colnames(DryBulb),5)
-colnames(output)[2:ncol(output)] = cols
+evap_out = data.frame(cbind(PlantID,emin,emed,emax,e25,e75))
+months = c("Plant_ID", rep(colnames(DryBulb),5))
+evap_out = rbind(months,evap_out)
+type = c("Plant_ID",rep("min",13),rep("med",13),rep("max",13),rep("25th",13),rep("75th",13))
+colnames(evap_out) = type
 
-write.xlsx(output,"Tower_model_output.xlsx",row.names=F)
+consumption_out = data.frame(cbind(PlantID,cmin,cmed,cmax,c25,c75))
+consumption_out = rbind(months,consumption_out)
+colnames(consumption_out) = type
+
+write.csv(evap_out,"Tower_model_evap_out.csv",row.names=F)
+write.csv(consumption_out,"Tower_model_consumption_out.csv",row.names=F)
 ```
 
 Below is the uninterrupted looping process, that combines all the steps (expect the export), described above,
 
-```{r, eval=T, echo=T, error=F, warning=F, message=F, cache=F}
+```{r, eval=T, echo=T, error=F, warning=F, message=F, cache=T}
 for (i in 1:nrow(PlantChar)){
-#for (i in plantindex){
 
 ### typical steam
 typSteam = 92 + (DesignChar$Twb[i]-55)/40*28.5
@@ -532,7 +560,6 @@ CTI$SteamT = DesignChar$Twb[i] + CTI$Range + CTI$Approach2 + cond_app
 ### censor towers
 CTI2 = subset(CTI, Approach2 > min_app & Approach2 < max_app)
 CTI2 = subset(CTI2, SteamT > min_steam & SteamT < max_steam)
-#CTI2 = CTI; # do not censor
 
 ### some other parameters
 cHL = 1000000
@@ -546,7 +573,7 @@ VaDC = MaDC * svdry$design[i]
 
 
 ### Use inputs + VaDC for monthly calculations
-  for (j in 1:ncol(DryBulb)){
+for (j in 1:ncol(DryBulb)){
     Ma = VaDC/svdry[i,j] 
     LG = (cQ*8.33*60)/Ma
     MupWT = (NaturalWater[i,j]*(9/5)+32)
@@ -594,6 +621,14 @@ VaDC = MaDC * svdry$design[i]
     emax[i,j] = max(Evap)
     e25[i,j] = quantile(Evap,0.25)
     e75[i,j] = quantile(Evap,0.75)
+    
+    Consumption = ((HeatLoad[i,1]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
+    
+    cmin[i,j] = min(Consumption)
+    cmed[i,j] = median(Consumption)
+    cmax[i,j] = max(Consumption)
+    c25[i,j] = quantile(Consumption,0.25)
+    c75[i,j] = quantile(Consumption,0.75)
     
   }
 }

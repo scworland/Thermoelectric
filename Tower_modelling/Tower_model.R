@@ -2,6 +2,10 @@
 ## clear workspace environment
 rm(list=ls(all=T)) 
 
+## enter names of input files
+input = "Winterized_input.csv"
+CTI_input = "CTI_input.csv"
+
 ## Set up workspace and import the data ----
 setwd("~/Thermoelectric/R_code/Thermoelectric/Tower_modelling")
 
@@ -9,11 +13,15 @@ setwd("~/Thermoelectric/R_code/Thermoelectric/Tower_modelling")
 ptm <- proc.time()
 
 ## read from CSV file
-filename = "Winterized_input.csv"
+data = read.csv(input, header=T, skip=7)
 
-data = read.csv(filename, header=T, skip=4)
-param = read.csv(filename, header=T, skip=1, nrows=1,
+param = read.csv(input, header=T, skip=4, nrows=1,
                  colClasses = c(rep(NA, 3), rep("NULL", 63)))
+
+monthdays = read.csv(input, header=T, skip=2, nrows=1,
+                 colClasses = c(rep(NA, 13), rep("NULL", 53)))
+
+location = read.csv("plant_locations.csv",header=T)
 
 min_T = param[1,1]
 min_approach = param[1,2]
@@ -114,8 +122,8 @@ nearest.vec <- function(x, vec)
 ## Actual model ----
 
 ### Read in CTI file
-CTI = read.csv(file = "CTI_input.csv", header=T, skip=3)
-CTI_param = read.csv("CTI_input.csv", header=T, skip=1, nrows=1,
+CTI = read.csv(file = CTI_input, header=T, skip=3)
+CTI_param = read.csv(CTI_input, header=T, skip=1, nrows=1,
                  colClasses = c(rep(NA, 5), rep("NULL", 1)))
 
 ### name parameters created by user
@@ -134,8 +142,14 @@ emed=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 emax=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 e75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
-rsquared=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar)) #temporary
-beta2=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar)) #temporary
+
+cmin=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+cmed=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+cmax=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+c25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+c75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
+#rsquared=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar)) #temporary
+#beta2=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar)) #temporary
 
 plant = 55177
 plantindex = which(PlantChar$Plant_ID==plant)
@@ -228,9 +242,17 @@ for (j in 1:ncol(DryBulb)){
     e25[i,j] = quantile(Evap,0.25)
     e75[i,j] = quantile(Evap,0.75)
     
+    Consumption = ((HeatLoad[i,1]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
+    
+    cmin[i,j] = min(Consumption)
+    cmed[i,j] = median(Consumption)
+    cmax[i,j] = max(Consumption)
+    c25[i,j] = quantile(Consumption,0.25)
+    c75[i,j] = quantile(Consumption,0.75)
+    
     #temporary
-    rsquared[i,j] = summary(lm(Evap~DH))$r.squared
-    beta2[i,j] = summary(lm(Evap~DH))$coefficients[2]
+    #rsquared[i,j] = summary(lm(Evap~(1/DH)))$r.squared
+    #beta2[i,j] = summary(lm(Evap~(1/DH)))$coefficients[2]
   }
 }
 
@@ -238,11 +260,19 @@ for (j in 1:ncol(DryBulb)){
 proc.time() - ptm
 
 ## Export to excel ----
-output = data.frame(cbind(PlantID,emin,emed,emax,e25,e75))
-cols = rep(colnames(DryBulb),5)
-colnames(output)[2:ncol(output)] = cols
+evap_out = data.frame(cbind(PlantID,emin,emed,emax,e25,e75))
+months = c("Plant_ID", rep(colnames(DryBulb),5))
+evap_out = rbind(months,evap_out)
+type = c("Plant_ID",rep("min",13),rep("med",13),rep("max",13),rep("25th",13),rep("75th",13))
+colnames(evap_out) = type
 
-write.csv(output,"Tower_model_output.csv",row.names=F)
+write.csv(evap_out,"Tower_model_evap_out.csv",row.names=F)
+
+consumption_out = data.frame(cbind(PlantID,cmin,cmed,cmax,c25,c75))
+consumption_out = rbind(months,consumption_out)
+colnames(consumption_out) = type
+
+write.csv(consumption_out,"Tower_model_consumption_out.csv",row.names=F)
 
 ## Plots ----
 library(ggplot2)
@@ -256,9 +286,10 @@ emedm = melt(emed[,1:13])
 CC = cbind(Twbm,Tdbm[,2],emedm[,3])
 colnames(CC) = c("month","Twb","Tdb","medEvap")
 CC$Plant_ID = rep(PlantChar$Plant_ID,13)
+CC$elev = rep(PlantChar$Elevation,13)
 CC2 = subset(CC, Twb > 25 & medEvap < 0.8)
 
-# all points
+# all points colored by month
 p = ggplot(data=CC)
 p = p + geom_point(aes(Twb,medEvap,color = month),size=4)
 p = p + scale_color_manual(values=c("royalblue4", "royalblue3",
@@ -268,15 +299,48 @@ p = p + scale_color_manual(values=c("royalblue4", "royalblue3",
                                     "darkgoldenrod1", "darkgoldenrod",
                                     "cornflowerblue", "royalblue3",
                                     "green"))
-p = p + theme_grey(base_size=20)
+p = p + theme_bw(base_size=20)
 p = p + geom_text(data=CC2, aes(Twb,medEvap,label=Plant_ID),size=5)
 p = p + geom_hline(aes(yintercept=1))
 p
 
-# subset of points
-p2 = ggplot(data=CC2,aes(Twb,medEvap,color = month))
-#p2 = p2 + geom_point(size=5)
-p2 = p2 + theme_grey(base_size=20)
-p2 = p2 + xlim(25,30)
-p2 = p2 + geom_text(aes(label=Plant_ID),size=5)
+# all points colored by elevation
+p2 = ggplot(data=CC)
+p2 = p2 + geom_point(aes(Twb,medEvap,color = elev),size=4)
+p2 = p2 + scale_color_gradientn(colours = rev(brewer.pal(n=11,name = 'RdGy')))
+p2 = p2 + theme_bw(base_size=20)
+p2 = p2 + geom_text(data=CC2, aes(Twb,medEvap,label=Plant_ID),size=5)
+p2 = p2 + geom_hline(aes(yintercept=1))
 p2
+
+# subset of points
+p3 = ggplot(data=CC2,aes(Twb,medEvap,color = month))
+#p3 = p3 + geom_point(size=5)
+p3 = p3 + theme_grey(base_size=20)
+p3 = p3 + xlim(25,30)
+p3 = p3 + geom_text(aes(label=Plant_ID),size=5)
+
+## Maps ----
+library(RColorBrewer)
+library(ggmap)
+
+## subset the plants used in the model
+emed = data.frame(emed)
+colnames(emed) = colnames(DryBulb)
+PlantChar$med = emed$design
+plants = merge(location,PlantChar,by="Plant_ID")
+plants = subset(plants, lon > -130)
+plants2 = subset(plants, med>1)
+
+## load the state data
+state = map_data('state')
+
+  
+m1 = ggplot() + ggtitle("U.S. Thermoelectric Plants")
+m1 = m1 + geom_polygon(data=state,aes(long,lat, group=group), color = "white", fill= "black") 
+m1 = m1 + coord_fixed(1.3) + theme_bw(base_size = 20)
+m1 = m1 + geom_point(data=plants, aes(lon,lat,color=med), size=3)
+m1 = m1 + scale_color_gradientn(colours = rev(brewer.pal(n=11,name = 'RdYlBu')))
+m1 = m1 + geom_point(data=plants2, aes(lon,lat,color=med), size=3, color="green")
+m1
+
