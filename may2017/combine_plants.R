@@ -1,19 +1,19 @@
 
 # set working directory (where data is located)
-setwd("~/Documents/Thermoelectric/may2017")
+setwd("~/Documents/Thermoelectric/R_code/Thermoelectric/may2017")
 
 library(dpylr)
 library(igraph)
 
 # load data
-data <- read.csv("data/Bo_gen_Y2015_terse_shuffled.csv", stringsAsFactors = F)
+data <- read.csv("data/bogencoo_input_2015_terse.csv", stringsAsFactors = F)
 
 plants <- unique(data$plant)
 d.out <- data.frame()
 
 for(i in 1:length(plants)){
   plant_i <- plants[i]
-  dsub <- filter(data, plant==plant_i)
+  dsub <- dplyr::filter(data, plant==plant_i)
   edges <- cbind(dsub$boiler,dsub$generator)
   g <- graph_from_edgelist(edges)
   groups <- clusters(g)$membership
@@ -35,8 +35,7 @@ for(i in 1:length(plants)){
   # dev.off()
 }
 
-result <- data %>%
-  left_join(d.out, by=c("plant","boiler" = "names"))
+result <- dplyr::left_join(data,d.out, by=c("plant","boiler" = "names"))
 
-write.csv(result,"bogen2015_shuffled_scw.csv", row.names = F)
+write.csv(result,"bogencoo2015_combined.csv", row.names = F)
 
