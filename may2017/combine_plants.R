@@ -71,10 +71,13 @@ associate <- function(data,save_image=FALSE){
   # return output data
   return(d.out)
 }
-  
+
+# run 'associate' function
 d.out <- associate(data, save_image = TRUE)
 
+# join function output to main data file
 result <- dplyr::left_join(data,d.out, by=c("Plant_ID","Vertex_2"))
 
+# write output to a CSV
 write.csv(result,"Plant_associations_output.csv", row.names = F)
 
