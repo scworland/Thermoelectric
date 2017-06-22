@@ -22,18 +22,18 @@ associate <- function(data,save_image=FALSE){
   plants <- unique(data$Plant_ID)
   
   # preallocated dataframe for output
-  d.out <- data.frame()
+  d_out <- data.frame()
   
   # for-loop that does the work
   for(i in 1:length(plants)){
     
-    # grab first plant
+    # grab plant[i]
     plant_i <- plants[i]
     
     # subset data by plant_i
     dsub <- dplyr::filter(data, Plant_ID==plant_i)
     
-    # prepare 'edeges' to pass to graph function
+    # prepare 'edges' to pass to graph function
     edges <- cbind(dsub$Vertex_1,dsub$Vertex_2)
     
     # build graph from edges
@@ -44,13 +44,13 @@ associate <- function(data,save_image=FALSE){
     
     # put everything together for plant_i
     d <- data.frame(Vertex_2=names(groups), 
-                    result=paste0(plant_i,"^",groups), 
+                    result=paste0("bogen^",plant_i,"^",groups), 
                     Plant_ID=plant_i,
                     row.names=NULL,
                     stringsAsFactors = F)
     
     # interatively append rows
-    d.out <- rbind(d.out,d)
+    d_out <- rbind(d_out,d)
     
     # if save_image==TRUE, then save images
     if(save_image) { 
@@ -69,14 +69,14 @@ associate <- function(data,save_image=FALSE){
   } 
   
   # return output data
-  return(d.out)
+  return(d_out)
 }
 
 # run 'associate' function
-d.out <- associate(data, save_image = TRUE)
+d_out <- associate(data, save_image = FALSE)
 
 # join function output to main data file
-result <- dplyr::left_join(data,d.out, by=c("Plant_ID","Vertex_2"))
+result <- dplyr::left_join(data,d_out, by=c("Plant_ID","Vertex_2"))
 
 # write output to a CSV
 write.csv(result,"Plant_associations_output.csv", row.names = F)
