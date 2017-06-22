@@ -2,40 +2,79 @@
 # set working directory (where data is located)
 setwd("~/Documents/Thermoelectric/R_code/Thermoelectric/may2017")
 
-library(dpylr)
+library(dplyr)
 library(igraph)
 
-# load data
-data <- read.csv("data/bogencoo_input_2015_terse.csv", stringsAsFactors = F)
+# load data from CSV file
+data <- read.csv("data/Bo_coo_Y2015_terse_input.csv", stringsAsFactors = F)
 
-plants <- unique(data$plant)
-d.out <- data.frame()
+# build custom function to do associations. The functions only required input is a data frame
+# with column names 'Plant_ID', 'Vertex_1', and 'Vertex_2'. All other columns will be ignored
 
-for(i in 1:length(plants)){
-  plant_i <- plants[i]
-  dsub <- dplyr::filter(data, plant==plant_i)
-  edges <- cbind(dsub$boiler,dsub$generator)
-  g <- graph_from_edgelist(edges)
-  groups <- clusters(g)$membership
-  d <- data.frame(names=names(groups), 
-                  result2=paste0(plant_i,"^",groups), 
-                  plant=plant_i,
-                  row.names=NULL,
-                  stringsAsFactors = F)
+associate <- function(data,save_image=FALSE){
   
-  d.out <- rbind(d.out,d)
-
-  # jpeg(file = paste("figures/","plant",plant_i, '.jpeg', sep = ''))
-  #      
-  # plot(g, vertex.size=5,
-  #      vertex.label.dist=0.5, 
-  #      vertex.color="red", 
-  #      edge.arrow.size=0.7,
-  #      main=paste0("plant ", plant_i))
-  # dev.off()
+  # test: Check that data provided by user is correct
+  if(!is.data.frame(data) || any(names(data) != c('Plant_ID', 'Vertex_1','Vertex_2'))) {
+    stop("data must be a data.frame with columns 'Plant_ID', 'Vertex_1', and 'Vertex_2' for this function to continue")
+  }
+  
+  # extract vector of unique plant IDs
+  plants <- unique(data$Plant_ID)
+  
+  # preallocated dataframe for output
+  d.out <- data.frame()
+  
+  # for-loop that does the work
+  for(i in 1:length(plants)){
+    
+    # grab first plant
+    plant_i <- plants[i]
+    
+    # subset data by plant_i
+    dsub <- dplyr::filter(data, Plant_ID==plant_i)
+    
+    # prepare 'edeges' to pass to graph function
+    edges <- cbind(dsub$Vertex_1,dsub$Vertex_2)
+    
+    # build graph from edges
+    g <- graph_from_edgelist(edges)
+    
+    # extract 'groups' from graph
+    groups <- clusters(g)$membership
+    
+    # put everything together for plant_i
+    d <- data.frame(Vertex_2=names(groups), 
+                    result=paste0(plant_i,"^",groups), 
+                    Plant_ID=plant_i,
+                    row.names=NULL,
+                    stringsAsFactors = F)
+    
+    # interatively append rows
+    d.out <- rbind(d.out,d)
+    
+    # if save_image==TRUE, then save images
+    if(save_image) { 
+      
+      jpeg(file = paste("figures/","plant",plant_i, '.jpeg', sep = ''))
+      
+      plot(g, vertex.size=5,
+           vertex.label.dist=0.5,
+           vertex.color="red",
+           edge.arrow.size=0.7,
+           main=paste0("plant ", plant_i))
+      dev.off()
+      
+    }
+    
+  } 
+  
+  # return output data
+  return(d.out)
 }
+  
+d.out <- associate(data, save_image = TRUE)
 
-result <- dplyr::left_join(data,d.out, by=c("plant","boiler" = "names"))
+result <- dplyr::left_join(data,d.out, by=c("Plant_ID","Vertex_2"))
 
-write.csv(result,"bogencoo2015_combined.csv", row.names = F)
+write.csv(result,"Plant_associations_output.csv", row.names = F)
 
