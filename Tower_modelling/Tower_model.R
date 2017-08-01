@@ -3,17 +3,18 @@
 rm(list=ls(all=T)) 
 
 ## enter names of input files
-input = "Winterized_input.csv"
+# input = "Winterized_input.csv"
+input = "Towers_design.csv"
 CTI_input = "CTI_input.csv"
 
 ## Set up workspace and import the data ----
-setwd("~/Thermoelectric/R_code/Thermoelectric/Tower_modelling")
+setwd("~/Documents/Thermoelectric/R_code/Thermoelectric/Tower_modelling")
 
 ### Start the timer
 ptm <- proc.time()
 
 ## read from CSV file
-data = read.csv(input, header=T, skip=7)
+data = read.csv(input, header=T, skip=7, na.strings="-")
 
 param = read.csv(input, header=T, skip=4, nrows=1,
                  colClasses = c(rep(NA, 3), rep("NULL", 63)))
@@ -148,14 +149,9 @@ cmed=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 cmax=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 c25=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
 c75=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar))
-#rsquared=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar)) #temporary
-#beta2=matrix(ncol=ncol(DryBulb),nrow=nrow(PlantChar)) #temporary
 
-plant = 55177
-plantindex = which(PlantChar$Plant_ID==plant)
 
 for (i in 1:nrow(PlantChar)){
-#for (i in plantindex){
 
 ### typical steam
 typSteam = 92 + (DesignChar$Twb[i]-55)/40*28.5
@@ -239,25 +235,20 @@ for (j in 1:ncol(DryBulb)){
     emin[i,j] = min(Evap)
     emed[i,j] = median(Evap)
     emax[i,j] = max(Evap)
-    e25[i,j] = quantile(Evap,0.25)
-    e75[i,j] = quantile(Evap,0.75)
+    e25[i,j] = quantile(Evap,0.25,na.rm=T)
+    e75[i,j] = quantile(Evap,0.75,na.rm=T)
     
     Consumption = ((HeatLoad[i,1]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
     
     cmin[i,j] = min(Consumption)
     cmed[i,j] = median(Consumption)
     cmax[i,j] = max(Consumption)
-    c25[i,j] = quantile(Consumption,0.25)
-    c75[i,j] = quantile(Consumption,0.75)
-    
-    #temporary
-    #rsquared[i,j] = summary(lm(Evap~(1/DH)))$r.squared
-    #beta2[i,j] = summary(lm(Evap~(1/DH)))$coefficients[2]
+    c25[i,j] = quantile(Consumption,0.25,na.rm=T)
+    c75[i,j] = quantile(Consumption,0.75,na.rm=T)
   }
 }
 
-### stop the timer
-proc.time() - ptm
+
 
 ## Export to excel ----
 evap_out = data.frame(cbind(PlantID,emin,emed,emax,e25,e75))
