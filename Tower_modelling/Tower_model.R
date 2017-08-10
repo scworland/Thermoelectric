@@ -187,6 +187,9 @@ LGDC = CTI2[,8]
 MaDC = cQ*8.3*60/LGDC
 VaDC = MaDC * svdry$design[i]
 
+### add a design column of cHL to heatload
+HeatLoad$design <- cHL
+
 
 ### Use inputs + VaDC for monthly calculations
 for (j in 1:ncol(DryBulb)){
@@ -238,7 +241,8 @@ for (j in 1:ncol(DryBulb)){
     e25[i,j] = quantile(Evap,0.25,na.rm=T)
     e75[i,j] = quantile(Evap,0.75,na.rm=T)
     
-    Consumption = ((HeatLoad[i,1]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
+    # changed Heatload[i,1] to Heatload[i,j]
+    Consumption = ((HeatLoad[i,j]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
     
     cmin[i,j] = min(Consumption)
     cmed[i,j] = median(Consumption)
