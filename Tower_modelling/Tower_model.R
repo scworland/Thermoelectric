@@ -241,8 +241,8 @@ for (j in 1:ncol(DryBulb)){
     e25[i,j] = quantile(Evap,0.25,na.rm=T)
     e75[i,j] = quantile(Evap,0.75,na.rm=T)
     
-    # changed Heatload[i,1] to Heatload[i,j]
-    Consumption = ((HeatLoad[i,j]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
+    # consumption in MGD
+    Consumption = (((HeatLoad[i,j]*1000000)/(monthdays[1,j]*24*cHL)) * gpm)/694.44
     
     cmin[i,j] = min(Consumption)
     cmed[i,j] = median(Consumption)

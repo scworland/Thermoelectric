@@ -366,6 +366,9 @@ cQ = cHL/(60*8.3*cRange)
 LGDC = CTI2[,8]
 MaDC = cQ*8.3*60/LGDC
 VaDC = MaDC * svdry$design[i]
+
+### add a design column of cHL to heatload
+HeatLoad$design <- cHL
 ```
 
 Calculate the air flow mass for a particular plant [i], month-DC [j], and the air flow volume for each tower characteristic in `VaDC`. `Ma` is a vector the same length as the number of tower characteristics,
@@ -497,7 +500,7 @@ Calculate the evaporation ratios and actual consumption values for each plant [i
 
 ```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 Evap = gpm/Dutygpm
-Consumption = ((HeatLoad[i,1]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
+Consumption = ((HeatLoad[i,j]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
 ```
 
 Now all thats left is to extract the min, med, max, 25th percentile, and 75th percentiles of the suite of tower characteristics for or each plant [i] and month-DC [j]. Each iteration of the inmost loop adds a value for every plant for a given month-DC, and every iteration of the outside loop changes the month. 
@@ -571,6 +574,8 @@ LGDC = CTI2[,8]
 MaDC = cQ*8.3*60/LGDC
 VaDC = MaDC * svdry$design[i]
 
+### add a design column of cHL to heatload
+HeatLoad$design <- cHL
 
 ### Use inputs + VaDC for monthly calculations
 for (j in 1:ncol(DryBulb)){
@@ -622,7 +627,7 @@ for (j in 1:ncol(DryBulb)){
     e25[i,j] = quantile(Evap,0.25)
     e75[i,j] = quantile(Evap,0.75)
     
-    Consumption = ((HeatLoad[i,1]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
+    Consumption = ((HeatLoad[i,j]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
     
     cmin[i,j] = min(Consumption)
     cmed[i,j] = median(Consumption)
