@@ -9,7 +9,7 @@ output:
 ---
 
 ```{r, echo=F, error=F, warning=F}
-setwd("C:\\Users\\scworlan\\Documents\\Thermoelectric\\R_code\\Thermoelectric\\Tower_modelling")
+setwd("~/Documents/Thermoelectric/R_code/Thermoelectric/Tower_modelling")
 ```
 
 ## Preface
@@ -496,11 +496,12 @@ Dutygpm = cD*(1000000*7.48051945564918/(60*(1000*(1-((NaturalWater[i,j])+
         (NaturalWater[i,j]) + 2500.79)*0.947817/(2.2046)))))
 ```
 
-Calculate the evaporation ratios and actual consumption values for each plant [i] and month-DC [j] for the suite of tower characteristics. The heat load has to be converted from MBTU/month, the BTU/hr,
+Calculate the evaporation ratios and actual consumption values for each plant [i] and month-DC [j] for the suite of tower characteristics. Convert consumption to MGD. The heat load has to be converted from MBTU/month, the BTU/hr,
 
 ```{r, eval=F, echo=T, error=F, warning=F, message=F, cache=F}
 Evap = gpm/Dutygpm
-Consumption = ((HeatLoad[i,j]*1000000)/(monthdays[1,j]*24*cHL)) * gpm
+# consumption in MGD
+Consumption = (((HeatLoad[i,j]*1000000)/(monthdays[1,j]*24*cHL)) * gpm)/694.44
 ```
 
 Now all thats left is to extract the min, med, max, 25th percentile, and 75th percentiles of the suite of tower characteristics for or each plant [i] and month-DC [j]. Each iteration of the inmost loop adds a value for every plant for a given month-DC, and every iteration of the outside loop changes the month. 
